@@ -26,6 +26,7 @@ import {
   minimizeWindow,
   setAlwaysOnTop,
   setWindowSize,
+  startWindowDragging,
 } from "./lib/window";
 import type { SessionRecord, SizePreset, TimerMode } from "./types";
 
@@ -192,8 +193,16 @@ export default function App() {
       <div className="ambient ambient-one" />
       <div className="ambient ambient-two" />
 
-      <header className="titlebar" data-tauri-drag-region>
-        <div className="brand" data-tauri-drag-region>
+      <header
+        className="titlebar"
+        onMouseDown={(event) => {
+          const target = event.target as HTMLElement;
+          if (event.button === 0 && !target.closest("button")) {
+            void startWindowDragging();
+          }
+        }}
+      >
+        <div className="brand">
           <span className="brand-mark"><Sparkles size={13} /></span>
           <span>Morrow</span>
         </div>

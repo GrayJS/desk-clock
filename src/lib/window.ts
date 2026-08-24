@@ -31,3 +31,7 @@ export async function minimizeWindow() {
 export async function closeWindow() {
   if (isTauri()) await getCurrentWindow().close();
 }
+
+export async function startWindowDragging() {
+  if (isTauri()) await getCurrentWindow().startDragging();
+}
