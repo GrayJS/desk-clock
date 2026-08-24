@@ -1,0 +1,41 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Morrow",
+  "version": "0.1.0",
+  "identifier": "com.morrow.deskclock",
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "devUrl": "http://localhost:1420",
+    "beforeBuildCommand": "npm run build",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "Morrow",
+        "width": 420,
+        "height": 560,
+        "minWidth": 340,
+        "minHeight": 210,
+        "maxWidth": 900,
+        "maxHeight": 760,
+        "resizable": true,
+        "decorations": false,
+        "transparent": true,
+        "alwaysOnTop": true,
+        "shadow": true,
+        "center": true
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "nsis",
+    "shortDescription": "轻量的桌面时钟与番茄钟",
+    "longDescription": "Morrow 是一款为 Windows 11 设计的轻量桌面时钟、番茄钟与专注记录工具。"
+  }
+}
