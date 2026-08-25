@@ -912,7 +912,11 @@ export default function App() {
       )}
 
       <footer>
-        <span><span className={`status-dot ${running ? "working" : ""}`} /> {running ? t("stayFocused") : t("ready")}</span>
+        <span>
+          <span className={`status-dot ${running ? "working" : ""}`} />
+          {running ? t("stayFocused") : t("ready")}
+          <b className="footer-version">v{CURRENT_VERSION}</b>
+        </span>
         <span><Settings2 size={12} /> {t("trayBackground")}</span>
       </footer>
     </main>

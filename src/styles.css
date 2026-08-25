@@ -259,6 +259,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible {
 
 footer { display: flex; align-items: center; justify-content: space-between; flex: 0 0 31px; padding: 0 20px; color: #565c56; font-size: 9px; }
 footer > span { display: flex; align-items: center; gap: 5px; }
+.footer-version { padding: 2px 5px; border: 1px solid var(--surface-line); border-radius: 6px; color: #717871; background: var(--soft-surface); font-size: 8px; font-weight: 600; line-height: 1; font-variant-numeric: tabular-nums; letter-spacing: .02em; }
 .status-dot { display: inline-block; width: 5px; height: 5px; border-radius: 50%; background: #59605a; }
 .status-dot.working { background: var(--lime); box-shadow: 0 0 8px rgba(215,251,118,.8); }
 
@@ -337,6 +338,7 @@ footer > span { display: flex; align-items: center; gap: 5px; }
 .app-shell[data-theme="light"] .record-dot { border-color: #eef2ea; background: #8cac29; }
 .app-shell[data-theme="light"] .empty-state,
 .app-shell[data-theme="light"] footer { color: #737b72; }
+.app-shell[data-theme="light"] .footer-version { color: #697168; background: rgba(255,255,255,.48); }
 .app-shell[data-theme="light"] .empty-state strong { color: #525a51; }
 .app-shell[data-theme="light"] .tree-card { border-color: rgba(82,113,41,.14); background: radial-gradient(circle at 50% 45%, rgba(154,194,84,.16), transparent 44%), linear-gradient(160deg, rgba(245,249,237,.82), rgba(218,229,208,.86)); box-shadow: inset 0 1px rgba(255,255,255,.82), 0 12px 30px rgba(55,72,47,.09); }
 .app-shell[data-theme="light"] .tree-card::before { opacity: .13; }
