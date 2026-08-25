@@ -3,17 +3,20 @@ import {
   ChevronDown,
   Clock3,
   History,
+  Monitor,
   Maximize2,
   Minus,
   Pause,
   Pin,
   Play,
+  Plus,
   RotateCcw,
   Settings2,
   Sparkles,
   Square,
   Sun,
   Moon,
+  Timer,
   TimerReset,
   Trash2,
   X,
@@ -34,11 +37,35 @@ import {
 } from "./lib/window";
 import type { SessionRecord, SizePreset, TimerMode } from "./types";
 
-const modeInfo: Record<TimerMode, { label: string; minutes: number }> = {
-  focus: { label: "专注", minutes: 25 },
-  short: { label: "短休息", minutes: 5 },
-  long: { label: "长休息", minutes: 15 },
+const modeInfo: Record<TimerMode, { label: string }> = {
+  focus: { label: "专注" },
+  short: { label: "短休息" },
+  long: { label: "长休息" },
 };
+
+const defaultDurations: Record<TimerMode, number> = {
+  focus: 25,
+  short: 5,
+  long: 15,
+};
+
+const durationPresets: Record<TimerMode, number[]> = {
+  focus: [15, 25, 45, 60],
+  short: [5, 10, 15],
+  long: [15, 20, 30],
+};
+
+type ThemePreference = "system" | "light" | "dark";
+
+const themeOptions: Array<{
+  value: ThemePreference;
+  label: string;
+  icon: typeof Monitor;
+}> = [
+  { value: "system", label: "跟随系统", icon: Monitor },
+  { value: "light", label: "浅色", icon: Sun },
+  { value: "dark", label: "深色", icon: Moon },
+];
 
 const sizeLabels: Record<SizePreset, string> = {
   compact: "迷你",
@@ -88,7 +115,11 @@ function playCompletionTone() {
 export default function App() {
   const now = useClock();
   const [mode, setMode] = useState<TimerMode>("focus");
-  const [remaining, setRemaining] = useState(modeInfo.focus.minutes * 60);
+  const [durations, setDurations] = usePersistentState<Record<TimerMode, number>>(
+    "morrow.durations",
+    defaultDurations,
+  );
+  const [remaining, setRemaining] = useState(defaultDurations.focus * 60);
   const [running, setRunning] = useState(false);
   const [task, setTask] = usePersistentState("morrow.currentTask", "");
   const [sessionNote, setSessionNote] = useState("");
@@ -101,13 +132,21 @@ export default function App() {
   const [sizePreset, setSizePreset] =
     usePersistentState<SizePreset>("morrow.size", "standard");
   const [sizeMenuOpen, setSizeMenuOpen] = useState(false);
-  const [theme, setTheme] = usePersistentState<"dark" | "light">(
+  const [themePreference, setThemePreference] = usePersistentState<ThemePreference>(
     "morrow.theme",
-    "dark",
+    "system",
   );
+  const [systemTheme, setSystemTheme] = useState<"dark" | "light">(() =>
+    window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light",
+  );
+  const [themeMenuOpen, setThemeMenuOpen] = useState(false);
+  const [durationMenuOpen, setDurationMenuOpen] = useState(false);
+  const [customMinutes, setCustomMinutes] = useState(defaultDurations.focus);
   const completingRef = useRef(false);
 
-  const totalSeconds = modeInfo[mode].minutes * 60;
+  const currentMinutes = durations[mode] ?? defaultDurations[mode];
+  const totalSeconds = currentMinutes * 60;
+  const theme = themePreference === "system" ? systemTheme : themePreference;
   const progress = Math.min(1, Math.max(0, 1 - remaining / totalSeconds));
   const circumference = 2 * Math.PI * 76;
 
@@ -132,22 +171,22 @@ export default function App() {
         title: task.trim() || "未命名专注",
         note: sessionNote.trim(),
         mode,
-        durationMinutes: modeInfo[mode].minutes,
+        durationMinutes: currentMinutes,
         completedAt: new Date().toISOString(),
       };
       setRecords((current) => [newRecord, ...current].slice(0, 200));
       setSessionNote("");
       setMode("short");
-      setRemaining(modeInfo.short.minutes * 60);
+      setRemaining((durations.short ?? defaultDurations.short) * 60);
     } else {
       setMode("focus");
-      setRemaining(modeInfo.focus.minutes * 60);
+      setRemaining((durations.focus ?? defaultDurations.focus) * 60);
     }
 
     window.setTimeout(() => {
       completingRef.current = false;
     }, 300);
-  }, [mode, sessionNote, setRecords, task]);
+  }, [currentMinutes, durations, mode, sessionNote, setRecords, task]);
 
   useEffect(() => {
     if (!running) return;
@@ -167,11 +206,24 @@ export default function App() {
     void setAlwaysOnTop(alwaysOnTop);
   }, [alwaysOnTop]);
 
+  useEffect(() => {
+    const media = window.matchMedia("(prefers-color-scheme: dark)");
+    const updateSystemTheme = (event: MediaQueryListEvent | MediaQueryList) => {
+      setSystemTheme(event.matches ? "dark" : "light");
+    };
+    updateSystemTheme(media);
+    media.addEventListener("change", updateSystemTheme);
+    return () => media.removeEventListener("change", updateSystemTheme);
+  }, []);
+
   const switchMode = (nextMode: TimerMode) => {
     void cancelTimerNotification();
     setRunning(false);
     setMode(nextMode);
-    setRemaining(modeInfo[nextMode].minutes * 60);
+    const nextMinutes = durations[nextMode] ?? defaultDurations[nextMode];
+    setRemaining(nextMinutes * 60);
+    setCustomMinutes(nextMinutes);
+    setDurationMenuOpen(false);
   };
 
   const resetTimer = () => {
@@ -196,10 +248,32 @@ export default function App() {
     finishSession();
   };
 
+  const openDurationMenu = () => {
+    setCustomMinutes(currentMinutes);
+    setDurationMenuOpen((value) => !value);
+    setThemeMenuOpen(false);
+    setSizeMenuOpen(false);
+  };
+
+  const applyDuration = (minutes: number) => {
+    const safeMinutes = Math.min(180, Math.max(1, Math.round(minutes || 1)));
+    void cancelTimerNotification();
+    setRunning(false);
+    setDurations((current) => ({ ...current, [mode]: safeMinutes }));
+    setRemaining(safeMinutes * 60);
+    setCustomMinutes(safeMinutes);
+    setDurationMenuOpen(false);
+  };
+
   const applySize = async (preset: SizePreset) => {
     setSizePreset(preset);
     setSizeMenuOpen(false);
     await setWindowSize(preset);
+  };
+
+  const selectTheme = (preference: ThemePreference) => {
+    setThemePreference(preference);
+    setThemeMenuOpen(false);
   };
 
   const timeText = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
@@ -209,9 +283,15 @@ export default function App() {
     day: "numeric",
     weekday: "long",
   }).format(now);
+  const ThemeButtonIcon =
+    themePreference === "system" ? Monitor : theme === "dark" ? Moon : Sun;
 
   return (
-    <main className={`app-shell size-${sizePreset}`} data-theme={theme}>
+    <main
+      className={`app-shell size-${sizePreset} ${running ? "is-running" : ""}`}
+      data-theme={theme}
+      data-theme-preference={themePreference}
+    >
       <div className="ambient ambient-one" />
       <div className="ambient ambient-two" />
 
@@ -229,14 +309,34 @@ export default function App() {
           <span>Morrow</span>
         </div>
         <div className="window-actions">
-          <button
-            className="icon-button theme-button"
-            aria-label={theme === "dark" ? "切换到浅色主题" : "切换到深色主题"}
-            title={theme === "dark" ? "浅色主题" : "深色主题"}
-            onClick={() => setTheme((value) => (value === "dark" ? "light" : "dark"))}
-          >
-            {theme === "dark" ? <Sun size={14} /> : <Moon size={14} />}
-          </button>
+          <div className="theme-menu-wrap">
+            <button
+              className={`icon-button theme-button ${themeMenuOpen ? "menu-active" : ""}`}
+              aria-label="选择界面主题"
+              title={themePreference === "system" ? `跟随系统（当前${theme === "dark" ? "深色" : "浅色"}）` : `${theme === "dark" ? "深色" : "浅色"}主题`}
+              onClick={() => {
+                setThemeMenuOpen((value) => !value);
+                setSizeMenuOpen(false);
+                setDurationMenuOpen(false);
+              }}
+            >
+              <ThemeButtonIcon size={14} />
+            </button>
+            {themeMenuOpen && (
+              <div className="theme-menu floating-menu">
+                <span className="menu-label">界面主题</span>
+                {themeOptions.map((option) => {
+                  const OptionIcon = option.icon;
+                  return (
+                    <button key={option.value} onClick={() => selectTheme(option.value)}>
+                      <span><OptionIcon size={13} /> {option.label}</span>
+                      {themePreference === option.value && <Check size={13} />}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
           <button
             className={`icon-button pin-button ${alwaysOnTop ? "active" : ""}`}
             aria-label={alwaysOnTop ? "取消置顶" : "窗口置顶"}
@@ -250,7 +350,11 @@ export default function App() {
               className="icon-button size-button"
               aria-label="调整窗口大小"
               title="窗口大小"
-              onClick={() => setSizeMenuOpen((value) => !value)}
+              onClick={() => {
+                setSizeMenuOpen((value) => !value);
+                setThemeMenuOpen(false);
+                setDurationMenuOpen(false);
+              }}
             >
               <Maximize2 size={14} />
               <ChevronDown size={10} />
@@ -301,19 +405,90 @@ export default function App() {
         {activeView === "timer" ? (
           <section className="timer-view">
             <div className="timer-card">
-              <div className="mode-switcher">
-                {(Object.keys(modeInfo) as TimerMode[]).map((item) => (
+              <div className="timer-topline">
+                <div className="mode-switcher">
+                  {(Object.keys(modeInfo) as TimerMode[]).map((item) => (
+                    <button
+                      key={item}
+                      className={mode === item ? "active" : ""}
+                      onClick={() => switchMode(item)}
+                    >
+                      {modeInfo[item].label}
+                    </button>
+                  ))}
+                </div>
+                <div className="duration-menu-wrap">
                   <button
-                    key={item}
-                    className={mode === item ? "active" : ""}
-                    onClick={() => switchMode(item)}
+                    className={`duration-trigger ${durationMenuOpen ? "active" : ""}`}
+                    aria-label="设置倒计时时长"
+                    onClick={openDurationMenu}
                   >
-                    {modeInfo[item].label}
+                    <Timer size={12} /> {currentMinutes} 分钟 <ChevronDown size={10} />
                   </button>
-                ))}
+                  {durationMenuOpen && (
+                    <div className="duration-menu floating-menu">
+                      <div className="duration-menu-heading">
+                        <span>{modeInfo[mode].label}时长</span>
+                        <strong>{currentMinutes}<small> 分钟</small></strong>
+                      </div>
+                      <div className="duration-presets">
+                        {durationPresets[mode].map((minutes) => (
+                          <button
+                            key={minutes}
+                            className={currentMinutes === minutes ? "active" : ""}
+                            onClick={() => applyDuration(minutes)}
+                          >
+                            {minutes}<small>min</small>
+                          </button>
+                        ))}
+                      </div>
+                      <div className="custom-duration">
+                        <button
+                          aria-label="减少一分钟"
+                          onClick={() =>
+                            setCustomMinutes((value) =>
+                              Math.max(1, (Number.isFinite(value) ? value : 1) - 1),
+                            )
+                          }
+                        >
+                          <Minus size={13} />
+                        </button>
+                        <label>
+                          <input
+                            type="number"
+                            min={1}
+                            max={180}
+                            value={customMinutes}
+                            aria-label="自定义分钟数"
+                            onChange={(event) =>
+                              setCustomMinutes(Number(event.target.value))
+                            }
+                            onKeyDown={(event) => {
+                              if (event.key === "Enter") applyDuration(customMinutes);
+                            }}
+                          />
+                          <span>分钟</span>
+                        </label>
+                        <button
+                          aria-label="增加一分钟"
+                          onClick={() =>
+                            setCustomMinutes((value) =>
+                              Math.min(180, (Number.isFinite(value) ? value : 1) + 1),
+                            )
+                          }
+                        >
+                          <Plus size={13} />
+                        </button>
+                      </div>
+                      <button className="apply-duration" onClick={() => applyDuration(customMinutes)}>
+                        应用自定义时长
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
 
-              <div className="timer-core">
+              <div className={`timer-core ${running ? "running" : ""}`}>
                 <svg className="progress-ring" viewBox="0 0 180 180" aria-hidden="true">
                   <circle className="ring-track" cx="90" cy="90" r="76" />
                   <circle
