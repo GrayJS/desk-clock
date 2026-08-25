@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import type { TimerMode } from "../types";
+import type { Locale } from "../i18n";
 
 function isTauri() {
   return "__TAURI_INTERNALS__" in window;
@@ -7,18 +7,10 @@ function isTauri() {
 
 export async function scheduleTimerNotification(
   seconds: number,
-  mode: TimerMode,
-  task: string,
+  title: string,
+  body: string,
 ) {
   if (!isTauri()) return;
-
-  const isFocus = mode === "focus";
-  const title = isFocus ? "专注完成" : "休息结束";
-  const body = isFocus
-    ? task.trim()
-      ? `“${task.trim()}”已完成，休息一下吧。`
-      : "本轮专注已完成，休息一下吧。"
-    : "休息时间结束，可以开始下一轮专注了。";
 
   await invoke("schedule_timer_notification", {
     seconds,
@@ -29,4 +21,8 @@ export async function scheduleTimerNotification(
 
 export async function cancelTimerNotification() {
   if (isTauri()) await invoke("cancel_timer_notification");
+}
+
+export async function setAppLanguage(locale: Locale) {
+  if (isTauri()) await invoke("set_app_language", { locale });
 }

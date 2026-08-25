@@ -3,6 +3,7 @@ import {
   ChevronDown,
   Clock3,
   History,
+  Languages,
   Monitor,
   Maximize2,
   Minus,
@@ -25,8 +26,15 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useClock } from "./hooks/useClock";
 import { usePersistentState } from "./hooks/usePersistentState";
 import {
+  createTranslator,
+  getSystemLocale,
+  type Locale,
+  type MessageKey,
+} from "./i18n";
+import {
   cancelTimerNotification,
   scheduleTimerNotification,
+  setAppLanguage,
 } from "./lib/background";
 import {
   closeWindow,
@@ -37,10 +45,22 @@ import {
 } from "./lib/window";
 import type { SessionRecord, SizePreset, TimerMode } from "./types";
 
-const modeInfo: Record<TimerMode, { label: string }> = {
-  focus: { label: "专注" },
-  short: { label: "短休息" },
-  long: { label: "长休息" },
+const modeLabelKeys: Record<TimerMode, MessageKey> = {
+  focus: "modeFocus",
+  short: "modeShort",
+  long: "modeLong",
+};
+
+const runningLabelKeys: Record<TimerMode, MessageKey> = {
+  focus: "runningFocus",
+  short: "runningShort",
+  long: "runningLong",
+};
+
+const startLabelKeys: Record<TimerMode, MessageKey> = {
+  focus: "startFocus",
+  short: "startShort",
+  long: "startLong",
 };
 
 const defaultDurations: Record<TimerMode, number> = {
@@ -59,19 +79,24 @@ type ThemePreference = "system" | "light" | "dark";
 
 const themeOptions: Array<{
   value: ThemePreference;
-  label: string;
+  labelKey: MessageKey;
   icon: typeof Monitor;
 }> = [
-  { value: "system", label: "跟随系统", icon: Monitor },
-  { value: "light", label: "浅色", icon: Sun },
-  { value: "dark", label: "深色", icon: Moon },
+  { value: "system", labelKey: "themeSystem", icon: Monitor },
+  { value: "light", labelKey: "themeLight", icon: Sun },
+  { value: "dark", labelKey: "themeDark", icon: Moon },
 ];
 
-const sizeLabels: Record<SizePreset, string> = {
-  compact: "迷你",
-  standard: "标准",
-  expanded: "展开",
+const sizeLabelKeys: Record<SizePreset, MessageKey> = {
+  compact: "sizeCompact",
+  standard: "sizeStandard",
+  expanded: "sizeExpanded",
 };
+
+const localeOptions: Array<{ value: Locale; labelKey: MessageKey }> = [
+  { value: "zh-CN", labelKey: "chinese" },
+  { value: "en-US", labelKey: "english" },
+];
 
 function pad(value: number) {
   return value.toString().padStart(2, "0");
@@ -132,6 +157,11 @@ export default function App() {
   const [sizePreset, setSizePreset] =
     usePersistentState<SizePreset>("morrow.size", "standard");
   const [sizeMenuOpen, setSizeMenuOpen] = useState(false);
+  const [locale, setLocale] = usePersistentState<Locale>(
+    "morrow.locale",
+    getSystemLocale(),
+  );
+  const [languageMenuOpen, setLanguageMenuOpen] = useState(false);
   const [themePreference, setThemePreference] = usePersistentState<ThemePreference>(
     "morrow.theme",
     "system",
@@ -143,6 +173,7 @@ export default function App() {
   const [durationMenuOpen, setDurationMenuOpen] = useState(false);
   const [customMinutes, setCustomMinutes] = useState(defaultDurations.focus);
   const completingRef = useRef(false);
+  const t = useMemo(() => createTranslator(locale), [locale]);
 
   const currentMinutes = durations[mode] ?? defaultDurations[mode];
   const totalSeconds = currentMinutes * 60;
@@ -168,7 +199,7 @@ export default function App() {
     if (mode === "focus") {
       const newRecord: SessionRecord = {
         id: crypto.randomUUID(),
-        title: task.trim() || "未命名专注",
+        title: task.trim() || t("unnamedFocus"),
         note: sessionNote.trim(),
         mode,
         durationMinutes: currentMinutes,
@@ -186,7 +217,7 @@ export default function App() {
     window.setTimeout(() => {
       completingRef.current = false;
     }, 300);
-  }, [currentMinutes, durations, mode, sessionNote, setRecords, task]);
+  }, [currentMinutes, durations, mode, sessionNote, setRecords, t, task]);
 
   useEffect(() => {
     if (!running) return;
@@ -216,6 +247,12 @@ export default function App() {
     return () => media.removeEventListener("change", updateSystemTheme);
   }, []);
 
+  useEffect(() => {
+    document.documentElement.lang = locale;
+    document.title = t("appTitle");
+    void setAppLanguage(locale);
+  }, [locale, t]);
+
   const switchMode = (nextMode: TimerMode) => {
     void cancelTimerNotification();
     setRunning(false);
@@ -239,7 +276,14 @@ export default function App() {
       return;
     }
 
-    void scheduleTimerNotification(remaining, mode, task);
+    const isFocus = mode === "focus";
+    const title = t(isFocus ? "notificationFocusTitle" : "notificationRestTitle");
+    const body = isFocus
+      ? task.trim()
+        ? t("notificationFocusTask", { task: task.trim() })
+        : t("notificationFocus")
+      : t("notificationRest");
+    void scheduleTimerNotification(remaining, title, body);
     setRunning(true);
   };
 
@@ -253,6 +297,7 @@ export default function App() {
     setDurationMenuOpen((value) => !value);
     setThemeMenuOpen(false);
     setSizeMenuOpen(false);
+    setLanguageMenuOpen(false);
   };
 
   const applyDuration = (minutes: number) => {
@@ -276,9 +321,14 @@ export default function App() {
     setThemeMenuOpen(false);
   };
 
+  const selectLocale = (nextLocale: Locale) => {
+    setLocale(nextLocale);
+    setLanguageMenuOpen(false);
+  };
+
   const timeText = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
   const secondsText = pad(now.getSeconds());
-  const dateText = new Intl.DateTimeFormat("zh-CN", {
+  const dateText = new Intl.DateTimeFormat(locale, {
     month: "long",
     day: "numeric",
     weekday: "long",
@@ -291,6 +341,7 @@ export default function App() {
       className={`app-shell size-${sizePreset} ${running ? "is-running" : ""}`}
       data-theme={theme}
       data-theme-preference={themePreference}
+      data-locale={locale}
     >
       <div className="ambient ambient-one" />
       <div className="ambient ambient-two" />
@@ -309,27 +360,65 @@ export default function App() {
           <span>Morrow</span>
         </div>
         <div className="window-actions">
+          <div className="language-menu-wrap">
+            <button
+              className={`icon-button language-button ${languageMenuOpen ? "menu-active" : ""}`}
+              aria-label={t("selectLanguage")}
+              title={locale === "zh-CN" ? t("chinese") : t("english")}
+              onClick={() => {
+                setLanguageMenuOpen((value) => !value);
+                setThemeMenuOpen(false);
+                setSizeMenuOpen(false);
+                setDurationMenuOpen(false);
+              }}
+            >
+              <Languages size={14} />
+            </button>
+            {languageMenuOpen && (
+              <div className="language-menu floating-menu">
+                <span className="menu-label">{t("language")}</span>
+                {localeOptions.map((option) => (
+                  <button
+                    key={option.value}
+                    onClick={() => selectLocale(option.value)}
+                  >
+                    <span>{t(option.labelKey)}</span>
+                    {locale === option.value && <Check size={13} />}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
           <div className="theme-menu-wrap">
             <button
               className={`icon-button theme-button ${themeMenuOpen ? "menu-active" : ""}`}
-              aria-label="选择界面主题"
-              title={themePreference === "system" ? `跟随系统（当前${theme === "dark" ? "深色" : "浅色"}）` : `${theme === "dark" ? "深色" : "浅色"}主题`}
+              aria-label={t("selectTheme")}
+              title={
+                themePreference === "system"
+                  ? t("themeCurrentSystem", {
+                      theme: t(theme === "dark" ? "themeDark" : "themeLight"),
+                    })
+                  : t("themeCurrent", {
+                      theme: t(theme === "dark" ? "themeDark" : "themeLight"),
+                    })
+              }
               onClick={() => {
                 setThemeMenuOpen((value) => !value);
                 setSizeMenuOpen(false);
                 setDurationMenuOpen(false);
+                setLanguageMenuOpen(false);
               }}
             >
               <ThemeButtonIcon size={14} />
             </button>
             {themeMenuOpen && (
               <div className="theme-menu floating-menu">
-                <span className="menu-label">界面主题</span>
+                <span className="menu-label">{t("themeTitle")}</span>
                 {themeOptions.map((option) => {
                   const OptionIcon = option.icon;
                   return (
                     <button key={option.value} onClick={() => selectTheme(option.value)}>
-                      <span><OptionIcon size={13} /> {option.label}</span>
+                      <span><OptionIcon size={13} /> {t(option.labelKey)}</span>
                       {themePreference === option.value && <Check size={13} />}
                     </button>
                   );
@@ -339,8 +428,8 @@ export default function App() {
           </div>
           <button
             className={`icon-button pin-button ${alwaysOnTop ? "active" : ""}`}
-            aria-label={alwaysOnTop ? "取消置顶" : "窗口置顶"}
-            title={alwaysOnTop ? "已置顶" : "置顶"}
+            aria-label={alwaysOnTop ? t("pinDisable") : t("pinEnable")}
+            title={alwaysOnTop ? t("pinned") : t("pin")}
             onClick={() => setPinned((value) => !value)}
           >
             <Pin size={14} fill={alwaysOnTop ? "currentColor" : "none"} />
@@ -348,12 +437,13 @@ export default function App() {
           <div className="size-menu-wrap">
             <button
               className="icon-button size-button"
-              aria-label="调整窗口大小"
-              title="窗口大小"
+              aria-label={t("resizeWindow")}
+              title={t("windowSize")}
               onClick={() => {
                 setSizeMenuOpen((value) => !value);
                 setThemeMenuOpen(false);
                 setDurationMenuOpen(false);
+                setLanguageMenuOpen(false);
               }}
             >
               <Maximize2 size={14} />
@@ -361,19 +451,19 @@ export default function App() {
             </button>
             {sizeMenuOpen && (
               <div className="size-menu">
-                {(Object.keys(sizeLabels) as SizePreset[]).map((preset) => (
+                {(Object.keys(sizeLabelKeys) as SizePreset[]).map((preset) => (
                   <button key={preset} onClick={() => void applySize(preset)}>
-                    <span>{sizeLabels[preset]}</span>
+                    <span>{t(sizeLabelKeys[preset])}</span>
                     {sizePreset === preset && <Check size={13} />}
                   </button>
                 ))}
               </div>
             )}
           </div>
-          <button className="icon-button" aria-label="最小化到托盘" title="最小化到托盘" onClick={() => void minimizeWindow()}>
+          <button className="icon-button" aria-label={t("minimizeToTray")} title={t("minimizeToTray")} onClick={() => void minimizeWindow()}>
             <Minus size={14} />
           </button>
-          <button className="icon-button close-button" aria-label="关闭到托盘" title="关闭到托盘" onClick={() => void closeWindow()}>
+          <button className="icon-button close-button" aria-label={t("closeToTray")} title={t("closeToTray")} onClick={() => void closeWindow()}>
             <X size={14} />
           </button>
         </div>
@@ -387,17 +477,17 @@ export default function App() {
           <div className="clock-date">{dateText}</div>
         </div>
         <div className="today-stat">
-          <span>今日专注</span>
-          <strong>{todayMinutes}<small> 分钟</small></strong>
+          <span>{t("todayFocus")}</span>
+          <strong>{todayMinutes}<small> {t("minute")}</small></strong>
         </div>
       </section>
 
       <nav className="view-tabs">
         <button className={activeView === "timer" ? "active" : ""} onClick={() => setActiveView("timer")}>
-          <TimerReset size={15} /> 番茄钟
+          <TimerReset size={15} /> {t("timerTab")}
         </button>
         <button className={activeView === "history" ? "active" : ""} onClick={() => setActiveView("history")}>
-          <History size={15} /> 记录 <span className="count-badge">{records.length}</span>
+          <History size={15} /> {t("historyTab")} <span className="count-badge">{records.length}</span>
         </button>
       </nav>
 
@@ -407,29 +497,29 @@ export default function App() {
             <div className="timer-card">
               <div className="timer-topline">
                 <div className="mode-switcher">
-                  {(Object.keys(modeInfo) as TimerMode[]).map((item) => (
+                  {(Object.keys(modeLabelKeys) as TimerMode[]).map((item) => (
                     <button
                       key={item}
                       className={mode === item ? "active" : ""}
                       onClick={() => switchMode(item)}
                     >
-                      {modeInfo[item].label}
+                      {t(modeLabelKeys[item])}
                     </button>
                   ))}
                 </div>
                 <div className="duration-menu-wrap">
                   <button
                     className={`duration-trigger ${durationMenuOpen ? "active" : ""}`}
-                    aria-label="设置倒计时时长"
+                    aria-label={t("durationSetting")}
                     onClick={openDurationMenu}
                   >
-                    <Timer size={12} /> {currentMinutes} 分钟 <ChevronDown size={10} />
+                    <Timer size={12} /> {currentMinutes} {t("minute")} <ChevronDown size={10} />
                   </button>
                   {durationMenuOpen && (
                     <div className="duration-menu floating-menu">
                       <div className="duration-menu-heading">
-                        <span>{modeInfo[mode].label}时长</span>
-                        <strong>{currentMinutes}<small> 分钟</small></strong>
+                        <span>{t("durationHeading", { mode: t(modeLabelKeys[mode]) })}</span>
+                        <strong>{currentMinutes}<small> {t("minute")}</small></strong>
                       </div>
                       <div className="duration-presets">
                         {durationPresets[mode].map((minutes) => (
@@ -444,7 +534,7 @@ export default function App() {
                       </div>
                       <div className="custom-duration">
                         <button
-                          aria-label="减少一分钟"
+                          aria-label={t("decreaseMinute")}
                           onClick={() =>
                             setCustomMinutes((value) =>
                               Math.max(1, (Number.isFinite(value) ? value : 1) - 1),
@@ -459,7 +549,7 @@ export default function App() {
                             min={1}
                             max={180}
                             value={customMinutes}
-                            aria-label="自定义分钟数"
+                            aria-label={t("customMinutes")}
                             onChange={(event) =>
                               setCustomMinutes(Number(event.target.value))
                             }
@@ -467,10 +557,10 @@ export default function App() {
                               if (event.key === "Enter") applyDuration(customMinutes);
                             }}
                           />
-                          <span>分钟</span>
+                          <span>{t("minute")}</span>
                         </label>
                         <button
-                          aria-label="增加一分钟"
+                          aria-label={t("increaseMinute")}
                           onClick={() =>
                             setCustomMinutes((value) =>
                               Math.min(180, (Number.isFinite(value) ? value : 1) + 1),
@@ -481,7 +571,7 @@ export default function App() {
                         </button>
                       </div>
                       <button className="apply-duration" onClick={() => applyDuration(customMinutes)}>
-                        应用自定义时长
+                        {t("applyCustomDuration")}
                       </button>
                     </div>
                   )}
@@ -501,20 +591,20 @@ export default function App() {
                   />
                 </svg>
                 <div className="timer-value">
-                  <small>{running ? "正在专注" : modeInfo[mode].label}</small>
+                  <small>{running ? t(runningLabelKeys[mode]) : t(modeLabelKeys[mode])}</small>
                   <strong>{formatTimer(remaining)}</strong>
                 </div>
               </div>
 
               <div className="timer-controls">
-                <button className="secondary-control" aria-label="重置计时器" onClick={resetTimer}>
+                <button className="secondary-control" aria-label={t("resetTimer")} onClick={resetTimer}>
                   <RotateCcw size={17} />
                 </button>
                 <button className="primary-control" onClick={toggleTimer}>
                   {running ? <Pause size={20} fill="currentColor" /> : <Play size={20} fill="currentColor" />}
-                  {running ? "暂停" : "开始专注"}
+                  {running ? t("pause") : t(startLabelKeys[mode])}
                 </button>
-                <button className="secondary-control" aria-label="完成本轮" onClick={completeManually}>
+                <button className="secondary-control" aria-label={t("completeRound")} onClick={completeManually}>
                   <Square size={15} fill="currentColor" />
                 </button>
               </div>
@@ -522,21 +612,21 @@ export default function App() {
 
             <div className="session-fields">
               <label>
-                <span>本轮目标</span>
+                <span>{t("roundGoal")}</span>
                 <textarea
                   value={task}
                   onChange={(event) => setTask(event.target.value)}
-                  placeholder="现在最重要的一件事…"
+                  placeholder={t("roundGoalPlaceholder")}
                   maxLength={200}
                   rows={3}
                 />
               </label>
               <label>
-                <span>随手记</span>
+                <span>{t("quickNote")}</span>
                 <textarea
                   value={sessionNote}
                   onChange={(event) => setSessionNote(event.target.value)}
-                  placeholder="完成后会写入记录（可选）"
+                  placeholder={t("quickNotePlaceholder")}
                   maxLength={400}
                   rows={3}
                 />
@@ -547,12 +637,12 @@ export default function App() {
           <section className="history-view">
             <div className="history-heading">
               <div>
-                <span>专注足迹</span>
-                <strong>今天完成 {todayRecords.length} 轮</strong>
+                <span>{t("focusFootprints")}</span>
+                <strong>{t("completedToday", { count: todayRecords.length })}</strong>
               </div>
               {records.length > 0 && (
                 <button className="clear-button" onClick={() => setRecords([])}>
-                  <Trash2 size={13} /> 清空
+                  <Trash2 size={13} /> {t("clear")}
                 </button>
               )}
             </div>
@@ -560,8 +650,8 @@ export default function App() {
               {records.length === 0 ? (
                 <div className="empty-state">
                   <Clock3 size={24} />
-                  <strong>还没有专注记录</strong>
-                  <span>完成一轮番茄钟后，它会出现在这里。</span>
+                  <strong>{t("noRecords")}</strong>
+                  <span>{t("noRecordsHint")}</span>
                 </div>
               ) : (
                 records.map((record) => (
@@ -571,7 +661,7 @@ export default function App() {
                       <strong>{record.title}</strong>
                       {record.note && <p>{record.note}</p>}
                       <span>
-                        {new Intl.DateTimeFormat("zh-CN", {
+                        {new Intl.DateTimeFormat(locale, {
                           month: "numeric",
                           day: "numeric",
                           hour: "2-digit",
@@ -589,8 +679,8 @@ export default function App() {
       </div>
 
       <footer>
-        <span><span className={`status-dot ${running ? "working" : ""}`} /> {running ? "保持专注" : "准备就绪"}</span>
-        <span><Settings2 size={12} /> 最小化后在托盘后台运行</span>
+        <span><span className={`status-dot ${running ? "working" : ""}`} /> {running ? t("stayFocused") : t("ready")}</span>
+        <span><Settings2 size={12} /> {t("trayBackground")}</span>
       </footer>
     </main>
   );

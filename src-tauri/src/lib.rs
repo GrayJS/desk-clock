@@ -6,8 +6,8 @@ use std::{
 
 use tauri::{
     menu::{Menu, MenuItem},
-    tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
-    AppHandle, Manager, State, WindowEvent,
+    tray::{MouseButton, MouseButtonState, TrayIcon, TrayIconBuilder, TrayIconEvent},
+    AppHandle, Manager, State, WindowEvent, Wry,
 };
 use tauri_plugin_notification::NotificationExt;
 
@@ -16,6 +16,12 @@ static QUITTING: AtomicBool = AtomicBool::new(false);
 #[derive(Default)]
 struct TimerState {
     generation: AtomicU64,
+}
+
+struct TrayState {
+    show_item: MenuItem<Wry>,
+    quit_item: MenuItem<Wry>,
+    tray: TrayIcon<Wry>,
 }
 
 fn show_main_window(app: &AppHandle) {
@@ -55,6 +61,26 @@ fn cancel_timer_notification(state: State<'_, TimerState>) {
     state.generation.fetch_add(1, Ordering::SeqCst);
 }
 
+#[tauri::command]
+fn set_app_language(state: State<'_, TrayState>, locale: String) {
+    let is_english = locale == "en-US";
+    let _ = state.show_item.set_text(if is_english {
+        "Show main window"
+    } else {
+        "显示主窗口"
+    });
+    let _ = state.quit_item.set_text(if is_english {
+        "Quit Morrow"
+    } else {
+        "退出 Morrow"
+    });
+    let _ = state.tray.set_tooltip(Some(if is_english {
+        "Morrow Desk Clock"
+    } else {
+        "Morrow 桌面时钟"
+    }));
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -62,7 +88,8 @@ pub fn run() {
         .manage(TimerState::default())
         .invoke_handler(tauri::generate_handler![
             schedule_timer_notification,
-            cancel_timer_notification
+            cancel_timer_notification,
+            set_app_language
         ])
         .setup(|app| {
             let show_item =
@@ -97,7 +124,12 @@ pub fn run() {
                 tray = tray.icon(icon.clone());
             }
 
-            tray.build(app)?;
+            let tray = tray.build(app)?;
+            app.manage(TrayState {
+                show_item,
+                quit_item,
+                tray,
+            });
             Ok(())
         })
         .on_window_event(|window, event| {
