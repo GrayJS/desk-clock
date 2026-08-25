@@ -2,35 +2,73 @@
 
 [简体中文](README.md) | English
 
-A lightweight desktop clock for Windows 11, built with Tauri 2, React, and TypeScript—without Electron.
+A lightweight desktop clock and focus companion for Windows 11, built with Tauri 2, React, TypeScript, and Three.js—without Electron.
+
+Current stable release: [`v0.6.3`](https://github.com/GrayJS/desk-clock/releases/latest)
 
 ## Preview
 
-![Morrow Desk Clock dark interface](docs/morrow-preview-en.png)
+![Morrow Desk Clock focus tomato tree in dark mode](docs/morrow-tree-preview-en.jpg)
+
+## Download and Install
+
+1. Open [GitHub Releases](https://github.com/GrayJS/desk-clock/releases/latest).
+2. Download the latest x64 setup executable from the release assets.
+3. Run the installer and launch Morrow.
+
+Windows 10/11 x64 and Microsoft Edge WebView2 are required. WebView2 is normally preinstalled on Windows 11.
 
 ## Features
 
 - Live clock and date with always-on-top enabled by default
-- Compact, standard, and expanded window presets with free resizing
+- Compact, standard, and expanded window presets with free resizing and dragging
 - Dark, light, and Windows system theme modes
-- Centralized internationalization resources with instant Simplified Chinese and English switching
-- Quick duration presets and custom 1–180 minute countdowns for focus, short-break, and long-break modes
-- A daily Three.js achievement tree that grows one tomato for every completed focus session
+- Instant Simplified Chinese and English switching
+- Focus, short-break, and long-break timer modes
+- Quick duration presets and custom 1–180 minute countdowns
 - Current goal, quick notes, and completed focus-session history
-- Runs in the system tray when minimized or closed, with restore and quit actions
-- Native background timer with Windows notifications when a session ends
-- Checks GitHub Releases at startup and every hour, then prompts when an update is available
-- Manual update checks from the title bar with up-to-date and network-error feedback
-- All user data stays on the device in `localStorage`
+- System tray background mode with restore and quit actions
+- Native background timing and Windows notifications when a session ends
 - Frameless transparent window, responsive layout, and Windows 11-inspired motion
+
+## Daily Focus Tomato Tree
+
+- A low-poly achievement tree rendered with Three.js
+- One tomato is added for every focus session completed that day
+- During a countdown, the next tomato grows from a small green fruit into a ripe red tomato
+- Pausing preserves its current maturity; resetting or switching modes cancels that growth
+- Tomato counts follow today's completed focus records and start fresh on a new local date
+- The tree includes breathing, swaying, pointer parallax, and responsive scaling animations
+
+## Updates
+
+- Checks GitHub Releases once after launch
+- Checks for new versions every hour in the background
+- Provides a manual update-check button in the title bar
+- Shows a download action and can send a Windows notification when an update is available
+- Reports when Morrow is up to date or when the network check fails
+- Displays the current application version in the footer
+
+## Data and Privacy
+
+- Focus history, the current goal, durations, theme, and language settings stay in local `localStorage`
+- No account is required
+- Focus history and quick notes are never uploaded
+- User data is never uploaded; network access may be used to load interface fonts and check the GitHub Releases API
 
 ## Development
 
-Requires Node.js 20+, Rust stable, and Windows WebView2.
+Node.js 20+, Rust stable, Windows WebView2, and an NSIS build environment are required.
 
 ```powershell
 npm install
 npm run tauri dev
+```
+
+To run only the frontend preview:
+
+```powershell
+npm run dev
 ```
 
 ## Build the Installer
@@ -39,4 +77,27 @@ npm run tauri dev
 npm run tauri build
 ```
 
-The NSIS installer is generated in `src-tauri/target/release/bundle/nsis`.
+The localized NSIS installer is generated in:
+
+```text
+src-tauri/target/release/bundle/nsis/
+```
+
+## Project Structure
+
+```text
+src/                         React + TypeScript interface
+src/components/FocusTree.tsx Three.js daily achievement tree
+src/lib/                     Window, background notification, and updater helpers
+src-tauri/src/lib.rs         Tauri tray, notification, and native window logic
+docs/                        README screenshots
+```
+
+## Tech Stack
+
+- Tauri 2
+- React 18
+- TypeScript
+- Three.js
+- Vite
+- Rust
