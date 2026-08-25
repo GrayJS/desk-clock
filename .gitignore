@@ -4,6 +4,9 @@ src-tauri/target
 .idea
 .vscode
 *.log
+.env
+.env.*
+!.env.example
 
 # Local environment and credentials
 .env

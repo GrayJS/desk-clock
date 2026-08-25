@@ -22,6 +22,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useClock } from "./hooks/useClock";
 import { usePersistentState } from "./hooks/usePersistentState";
 import {
+  cancelTimerNotification,
+  scheduleTimerNotification,
+} from "./lib/background";
+import {
   closeWindow,
   minimizeWindow,
   setAlwaysOnTop,
@@ -164,14 +168,32 @@ export default function App() {
   }, [alwaysOnTop]);
 
   const switchMode = (nextMode: TimerMode) => {
+    void cancelTimerNotification();
     setRunning(false);
     setMode(nextMode);
     setRemaining(modeInfo[nextMode].minutes * 60);
   };
 
   const resetTimer = () => {
+    void cancelTimerNotification();
     setRunning(false);
     setRemaining(totalSeconds);
+  };
+
+  const toggleTimer = () => {
+    if (running) {
+      void cancelTimerNotification();
+      setRunning(false);
+      return;
+    }
+
+    void scheduleTimerNotification(remaining, mode, task);
+    setRunning(true);
+  };
+
+  const completeManually = () => {
+    void cancelTimerNotification();
+    finishSession();
   };
 
   const applySize = async (preset: SizePreset) => {
@@ -244,10 +266,10 @@ export default function App() {
               </div>
             )}
           </div>
-          <button className="icon-button" aria-label="最小化" onClick={() => void minimizeWindow()}>
+          <button className="icon-button" aria-label="最小化到托盘" title="最小化到托盘" onClick={() => void minimizeWindow()}>
             <Minus size={14} />
           </button>
-          <button className="icon-button close-button" aria-label="关闭" onClick={() => void closeWindow()}>
+          <button className="icon-button close-button" aria-label="关闭到托盘" title="关闭到托盘" onClick={() => void closeWindow()}>
             <X size={14} />
           </button>
         </div>
@@ -313,11 +335,11 @@ export default function App() {
                 <button className="secondary-control" aria-label="重置计时器" onClick={resetTimer}>
                   <RotateCcw size={17} />
                 </button>
-                <button className="primary-control" onClick={() => setRunning((value) => !value)}>
+                <button className="primary-control" onClick={toggleTimer}>
                   {running ? <Pause size={20} fill="currentColor" /> : <Play size={20} fill="currentColor" />}
                   {running ? "暂停" : "开始专注"}
                 </button>
-                <button className="secondary-control" aria-label="完成本轮" onClick={finishSession}>
+                <button className="secondary-control" aria-label="完成本轮" onClick={completeManually}>
                   <Square size={15} fill="currentColor" />
                 </button>
               </div>
@@ -393,7 +415,7 @@ export default function App() {
 
       <footer>
         <span><span className={`status-dot ${running ? "working" : ""}`} /> {running ? "保持专注" : "准备就绪"}</span>
-        <span><Settings2 size={12} /> 数据仅保存在本机</span>
+        <span><Settings2 size={12} /> 最小化后在托盘后台运行</span>
       </footer>
     </main>
   );

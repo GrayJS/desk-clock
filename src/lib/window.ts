@@ -25,7 +25,7 @@ export async function setWindowSize(preset: SizePreset) {
 }
 
 export async function minimizeWindow() {
-  if (isTauri()) await getCurrentWindow().minimize();
+  if (isTauri()) await getCurrentWindow().hide();
 }
 
 export async function closeWindow() {
