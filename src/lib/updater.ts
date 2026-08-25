@@ -5,7 +5,7 @@ const DEFAULT_UPDATE_API_URL =
   "https://api.github.com/repos/GrayJS/desk-clock/releases/latest";
 
 export const CURRENT_VERSION = packageInfo.version;
-export const UPDATE_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
+export const UPDATE_CHECK_INTERVAL_MS = 60 * 60 * 1000;
 
 export type AvailableUpdate = {
   version: string;
