@@ -16,6 +16,7 @@ import {
   RotateCcw,
   Settings2,
   Sparkles,
+  Sprout,
   Square,
   Sun,
   Moon,
@@ -24,7 +25,15 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  lazy,
+  Suspense,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { useClock } from "./hooks/useClock";
 import { usePersistentState } from "./hooks/usePersistentState";
 import {
@@ -53,6 +62,8 @@ import {
   startWindowDragging,
 } from "./lib/window";
 import type { SessionRecord, SizePreset, TimerMode } from "./types";
+
+const FocusTree = lazy(() => import("./components/FocusTree"));
 
 const modeLabelKeys: Record<TimerMode, MessageKey> = {
   focus: "modeFocus",
@@ -161,7 +172,9 @@ export default function App() {
     "morrow.sessions",
     [],
   );
-  const [activeView, setActiveView] = useState<"timer" | "history">("timer");
+  const [activeView, setActiveView] = useState<"timer" | "tree" | "history">(
+    "timer",
+  );
   const [alwaysOnTop, setPinned] = usePersistentState("morrow.pinned", true);
   const [sizePreset, setSizePreset] =
     usePersistentState<SizePreset>("morrow.size", "standard");
@@ -196,14 +209,19 @@ export default function App() {
   const progress = Math.min(1, Math.max(0, 1 - remaining / totalSeconds));
   const circumference = 2 * Math.PI * 76;
 
+  const todayKey = `${now.getFullYear()}-${now.getMonth()}-${now.getDate()}`;
   const todayRecords = useMemo(
     () => records.filter((record) => sameLocalDay(record.completedAt)),
-    [records],
+    [records, todayKey],
   );
   const todayMinutes = todayRecords.reduce(
     (sum, record) => sum + record.durationMinutes,
     0,
   );
+  const todayTomatoes = todayRecords.length;
+  const tomatoGrowthProgress = mode === "focus" ? progress : 0;
+  const remainingFocusMinutes = mode === "focus" ? remaining / 60 : currentMinutes;
+  const isTomatoGrowing = mode === "focus" && remaining < totalSeconds;
 
   const finishSession = useCallback(() => {
     if (completingRef.current) return;
@@ -554,6 +572,9 @@ export default function App() {
         <button className={activeView === "timer" ? "active" : ""} onClick={() => setActiveView("timer")}>
           <TimerReset size={15} /> {t("timerTab")}
         </button>
+        <button className={activeView === "tree" ? "active" : ""} onClick={() => setActiveView("tree")}>
+          <Sprout size={15} /> {t("treeTab")} <span className="count-badge tomato-badge">{todayTomatoes}</span>
+        </button>
         <button className={activeView === "history" ? "active" : ""} onClick={() => setActiveView("history")}>
           <History size={15} /> {t("historyTab")} <span className="count-badge">{records.length}</span>
         </button>
@@ -701,6 +722,24 @@ export default function App() {
               </label>
             </div>
           </section>
+        ) : activeView === "tree" ? (
+          <Suspense
+            fallback={(
+              <div className="tree-loading" role="status">
+                <Sprout size={22} />
+                <span>{t("treeLoading")}</span>
+              </div>
+            )}
+          >
+            <FocusTree
+              tomatoCount={todayTomatoes}
+              growthProgress={tomatoGrowthProgress}
+              remainingFocusMinutes={remainingFocusMinutes}
+              isGrowing={isTomatoGrowing}
+              dateText={dateText}
+              t={t}
+            />
+          </Suspense>
         ) : (
           <section className="history-view">
             <div className="history-heading">

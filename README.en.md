@@ -15,6 +15,7 @@ A lightweight desktop clock for Windows 11, built with Tauri 2, React, and TypeS
 - Dark, light, and Windows system theme modes
 - Centralized internationalization resources with instant Simplified Chinese and English switching
 - Quick duration presets and custom 1–180 minute countdowns for focus, short-break, and long-break modes
+- A daily Three.js achievement tree that grows one tomato for every completed focus session
 - Current goal, quick notes, and completed focus-session history
 - Runs in the system tray when minimized or closed, with restore and quit actions
 - Native background timer with Windows notifications when a session ends
