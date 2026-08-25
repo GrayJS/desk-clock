@@ -4,6 +4,10 @@
 
 一款面向 Windows 11 的轻量桌面时钟。使用 Tauri 2、React 和 TypeScript 构建，不依赖 Electron。
 
+## 效果预览
+
+![Morrow 桌面时钟浅色界面](docs/morrow-preview.png)
+
 ## 功能
 
 - 实时时钟与日期，窗口默认置顶

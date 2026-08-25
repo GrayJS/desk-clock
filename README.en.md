@@ -4,6 +4,10 @@
 
 A lightweight desktop clock for Windows 11, built with Tauri 2, React, and TypeScript—without Electron.
 
+## Preview
+
+![Morrow Desk Clock dark interface](docs/morrow-preview-en.png)
+
 ## Features
 
 - Live clock and date with always-on-top enabled by default
