@@ -1,7 +1,9 @@
 import {
+  ArrowUpRight,
   Check,
   ChevronDown,
   Clock3,
+  DownloadCloud,
   History,
   Languages,
   Monitor,
@@ -33,9 +35,16 @@ import {
 } from "./i18n";
 import {
   cancelTimerNotification,
+  openReleasePage,
   scheduleTimerNotification,
   setAppLanguage,
+  showUpdateNotification,
 } from "./lib/background";
+import {
+  checkForUpdate,
+  UPDATE_CHECK_INTERVAL_MS,
+  type AvailableUpdate,
+} from "./lib/updater";
 import {
   closeWindow,
   minimizeWindow,
@@ -172,7 +181,13 @@ export default function App() {
   const [themeMenuOpen, setThemeMenuOpen] = useState(false);
   const [durationMenuOpen, setDurationMenuOpen] = useState(false);
   const [customMinutes, setCustomMinutes] = useState(defaultDurations.focus);
+  const [availableUpdate, setAvailableUpdate] =
+    useState<AvailableUpdate | null>(null);
+  const [updateDismissed, setUpdateDismissed] = useState(false);
   const completingRef = useRef(false);
+  const lastUpdateCheckRef = useRef(0);
+  const updateDismissedUntilRef = useRef(0);
+  const notifiedUpdateRef = useRef<string | null>(null);
   const t = useMemo(() => createTranslator(locale), [locale]);
 
   const currentMinutes = durations[mode] ?? defaultDurations[mode];
@@ -253,6 +268,54 @@ export default function App() {
     void setAppLanguage(locale);
   }, [locale, t]);
 
+  const runUpdateCheck = useCallback(
+    async (signal?: AbortSignal) => {
+      try {
+        const update = await checkForUpdate(signal);
+        lastUpdateCheckRef.current = Date.now();
+        if (!update) return;
+
+        setAvailableUpdate(update);
+        if (Date.now() >= updateDismissedUntilRef.current) {
+          setUpdateDismissed(false);
+        }
+        if (notifiedUpdateRef.current !== update.version) {
+          notifiedUpdateRef.current = update.version;
+          void showUpdateNotification(
+            t("updateNotificationTitle"),
+            t("updateNotificationBody", { version: update.version }),
+          );
+        }
+      } catch (error) {
+        if (error instanceof DOMException && error.name === "AbortError") return;
+        // Update checks are best-effort and must not interrupt offline use.
+      }
+    },
+    [t],
+  );
+
+  useEffect(() => {
+    const controller = new AbortController();
+    const check = () => void runUpdateCheck(controller.signal);
+    const startupTimer = window.setTimeout(check, 2500);
+    const interval = window.setInterval(check, UPDATE_CHECK_INTERVAL_MS);
+    const checkWhenVisible = () => {
+      if (
+        document.visibilityState === "visible" &&
+        Date.now() - lastUpdateCheckRef.current >= UPDATE_CHECK_INTERVAL_MS
+      ) {
+        check();
+      }
+    };
+    document.addEventListener("visibilitychange", checkWhenVisible);
+    return () => {
+      controller.abort();
+      window.clearTimeout(startupTimer);
+      window.clearInterval(interval);
+      document.removeEventListener("visibilitychange", checkWhenVisible);
+    };
+  }, [runUpdateCheck]);
+
   const switchMode = (nextMode: TimerMode) => {
     void cancelTimerNotification();
     setRunning(false);
@@ -324,6 +387,11 @@ export default function App() {
   const selectLocale = (nextLocale: Locale) => {
     setLocale(nextLocale);
     setLanguageMenuOpen(false);
+  };
+
+  const dismissUpdate = () => {
+    updateDismissedUntilRef.current = Date.now() + UPDATE_CHECK_INTERVAL_MS;
+    setUpdateDismissed(true);
   };
 
   const timeText = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
@@ -677,6 +745,30 @@ export default function App() {
           </section>
         )}
       </div>
+
+      {availableUpdate && !updateDismissed && (
+        <aside className="update-toast" role="status" aria-live="polite">
+          <span className="update-icon"><DownloadCloud size={17} /></span>
+          <div className="update-copy">
+            <strong>{t("updateAvailable", { version: availableUpdate.version })}</strong>
+            <span>{t("updateDescription")}</span>
+          </div>
+          <button
+            className="update-action"
+            onClick={() => void openReleasePage(availableUpdate.releaseUrl)}
+          >
+            {t("viewUpdate")} <ArrowUpRight size={12} />
+          </button>
+          <button
+            className="update-dismiss"
+            aria-label={t("dismissUpdate")}
+            title={t("dismissUpdate")}
+            onClick={dismissUpdate}
+          >
+            <X size={13} />
+          </button>
+        </aside>
+      )}
 
       <footer>
         <span><span className={`status-dot ${running ? "working" : ""}`} /> {running ? t("stayFocused") : t("ready")}</span>

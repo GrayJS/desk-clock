@@ -67,6 +67,12 @@ const zhCN = {
   trayShow: "显示主窗口",
   trayQuit: "退出 Morrow",
   trayTooltip: "Morrow 桌面时钟",
+  updateAvailable: "发现新版本 v{version}",
+  updateDescription: "已在 GitHub 发布，可以下载更新。",
+  viewUpdate: "查看更新",
+  dismissUpdate: "稍后提醒",
+  updateNotificationTitle: "Morrow 有新版本",
+  updateNotificationBody: "v{version} 已发布，打开 Morrow 查看更新。",
 } as const;
 
 export type MessageKey = keyof typeof zhCN;
@@ -138,6 +144,12 @@ const enUS: Record<MessageKey, string> = {
   trayShow: "Show main window",
   trayQuit: "Quit Morrow",
   trayTooltip: "Morrow Desk Clock",
+  updateAvailable: "Version v{version} is available",
+  updateDescription: "A new release is ready to download from GitHub.",
+  viewUpdate: "View update",
+  dismissUpdate: "Remind me later",
+  updateNotificationTitle: "A Morrow update is available",
+  updateNotificationBody: "Version v{version} is out. Open Morrow to update.",
 };
 
 const messages: Record<Locale, Record<MessageKey, string>> = {

@@ -18,6 +18,7 @@ A lightweight desktop clock for Windows 11, built with Tauri 2, React, and TypeS
 - Current goal, quick notes, and completed focus-session history
 - Runs in the system tray when minimized or closed, with restore and quit actions
 - Native background timer with Windows notifications when a session ends
+- Checks GitHub Releases at startup and every 6 hours, then prompts when an update is available
 - All user data stays on the device in `localStorage`
 - Frameless transparent window, responsive layout, and Windows 11-inspired motion
 

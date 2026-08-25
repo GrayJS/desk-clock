@@ -1,4 +1,5 @@
 use std::{
+    process::Command,
     sync::atomic::{AtomicBool, AtomicU64, Ordering},
     thread,
     time::Duration,
@@ -81,6 +82,25 @@ fn set_app_language(state: State<'_, TrayState>, locale: String) {
     }));
 }
 
+#[tauri::command]
+fn show_update_notification(app: AppHandle, title: String, body: String) {
+    let _ = app.notification().builder().title(title).body(body).show();
+}
+
+#[tauri::command]
+fn open_release_page(url: String) -> Result<(), String> {
+    const RELEASES_URL: &str = "https://github.com/GrayJS/desk-clock/releases/";
+    if !url.starts_with(RELEASES_URL) {
+        return Err("unsupported release URL".into());
+    }
+
+    Command::new("rundll32.exe")
+        .args(["url.dll,FileProtocolHandler", &url])
+        .spawn()
+        .map(|_| ())
+        .map_err(|error| error.to_string())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -89,7 +109,9 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             schedule_timer_notification,
             cancel_timer_notification,
-            set_app_language
+            set_app_language,
+            show_update_notification,
+            open_release_page
         ])
         .setup(|app| {
             let show_item =
