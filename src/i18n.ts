@@ -83,6 +83,12 @@ const zhCN = {
   dismissUpdate: "稍后提醒",
   updateNotificationTitle: "Morrow 有新版本",
   updateNotificationBody: "v{version} 已发布，打开 Morrow 查看更新。",
+  manualCheckUpdate: "手动检查更新",
+  checkingForUpdates: "正在检查更新",
+  updateUpToDate: "已经是最新版本",
+  updateUpToDateDescription: "当前版本 v{version}",
+  updateCheckFailed: "检查更新失败",
+  updateCheckFailedDescription: "请检查网络连接后重试",
 } as const;
 
 export type MessageKey = keyof typeof zhCN;
@@ -170,6 +176,12 @@ const enUS: Record<MessageKey, string> = {
   dismissUpdate: "Remind me later",
   updateNotificationTitle: "A Morrow update is available",
   updateNotificationBody: "Version v{version} is out. Open Morrow to update.",
+  manualCheckUpdate: "Check for updates",
+  checkingForUpdates: "Checking for updates",
+  updateUpToDate: "Morrow is up to date",
+  updateUpToDateDescription: "Current version v{version}",
+  updateCheckFailed: "Update check failed",
+  updateCheckFailedDescription: "Check your connection and try again",
 };
 
 const messages: Record<Locale, Record<MessageKey, string>> = {

@@ -13,6 +13,7 @@ import {
   Pin,
   Play,
   Plus,
+  RefreshCw,
   RotateCcw,
   Settings2,
   Sparkles,
@@ -51,6 +52,7 @@ import {
 } from "./lib/background";
 import {
   checkForUpdate,
+  CURRENT_VERSION,
   UPDATE_CHECK_INTERVAL_MS,
   type AvailableUpdate,
 } from "./lib/updater";
@@ -96,6 +98,7 @@ const durationPresets: Record<TimerMode, number[]> = {
 };
 
 type ThemePreference = "system" | "light" | "dark";
+type ManualUpdateStatus = "idle" | "checking" | "current" | "error";
 
 const themeOptions: Array<{
   value: ThemePreference;
@@ -197,10 +200,13 @@ export default function App() {
   const [availableUpdate, setAvailableUpdate] =
     useState<AvailableUpdate | null>(null);
   const [updateDismissed, setUpdateDismissed] = useState(false);
+  const [manualUpdateStatus, setManualUpdateStatus] =
+    useState<ManualUpdateStatus>("idle");
   const completingRef = useRef(false);
   const lastUpdateCheckRef = useRef(0);
   const updateDismissedUntilRef = useRef(0);
   const notifiedUpdateRef = useRef<string | null>(null);
+  const manualUpdateTimerRef = useRef<number | null>(null);
   const t = useMemo(() => createTranslator(locale), [locale]);
 
   const currentMinutes = durations[mode] ?? defaultDurations[mode];
@@ -291,7 +297,7 @@ export default function App() {
       try {
         const update = await checkForUpdate(signal);
         lastUpdateCheckRef.current = Date.now();
-        if (!update) return;
+        if (!update) return "current" as const;
 
         setAvailableUpdate(update);
         if (Date.now() >= updateDismissedUntilRef.current) {
@@ -304,9 +310,13 @@ export default function App() {
             t("updateNotificationBody", { version: update.version }),
           );
         }
+        return "available" as const;
       } catch (error) {
-        if (error instanceof DOMException && error.name === "AbortError") return;
+        if (error instanceof DOMException && error.name === "AbortError") {
+          return "aborted" as const;
+        }
         // Update checks are best-effort and must not interrupt offline use.
+        return "error" as const;
       }
     },
     [t],
@@ -333,6 +343,15 @@ export default function App() {
       document.removeEventListener("visibilitychange", checkWhenVisible);
     };
   }, [runUpdateCheck]);
+
+  useEffect(
+    () => () => {
+      if (manualUpdateTimerRef.current !== null) {
+        window.clearTimeout(manualUpdateTimerRef.current);
+      }
+    },
+    [],
+  );
 
   const switchMode = (nextMode: TimerMode) => {
     void cancelTimerNotification();
@@ -410,6 +429,37 @@ export default function App() {
   const dismissUpdate = () => {
     updateDismissedUntilRef.current = Date.now() + UPDATE_CHECK_INTERVAL_MS;
     setUpdateDismissed(true);
+  };
+
+  const showManualUpdateStatus = (status: ManualUpdateStatus) => {
+    if (manualUpdateTimerRef.current !== null) {
+      window.clearTimeout(manualUpdateTimerRef.current);
+    }
+    setManualUpdateStatus(status);
+    if (status === "current" || status === "error") {
+      manualUpdateTimerRef.current = window.setTimeout(() => {
+        setManualUpdateStatus("idle");
+        manualUpdateTimerRef.current = null;
+      }, 3600);
+    }
+  };
+
+  const manuallyCheckForUpdates = async () => {
+    if (manualUpdateStatus === "checking") return;
+    showManualUpdateStatus("checking");
+    updateDismissedUntilRef.current = 0;
+    setUpdateDismissed(false);
+    const result = await runUpdateCheck();
+    if (result === "available") {
+      showManualUpdateStatus("idle");
+      return;
+    }
+    if (result === "current") {
+      setAvailableUpdate(null);
+      showManualUpdateStatus("current");
+      return;
+    }
+    if (result === "error") showManualUpdateStatus("error");
   };
 
   const timeText = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
@@ -512,6 +562,25 @@ export default function App() {
               </div>
             )}
           </div>
+          <button
+            className={`icon-button update-check-button ${
+              manualUpdateStatus === "checking" ? "checking" : ""
+            } ${availableUpdate ? "has-update" : ""}`}
+            aria-label={
+              manualUpdateStatus === "checking"
+                ? t("checkingForUpdates")
+                : t("manualCheckUpdate")
+            }
+            title={
+              manualUpdateStatus === "checking"
+                ? t("checkingForUpdates")
+                : t("manualCheckUpdate")
+            }
+            disabled={manualUpdateStatus === "checking"}
+            onClick={() => void manuallyCheckForUpdates()}
+          >
+            <RefreshCw size={14} />
+          </button>
           <button
             className={`icon-button pin-button ${alwaysOnTop ? "active" : ""}`}
             aria-label={alwaysOnTop ? t("pinDisable") : t("pinEnable")}
@@ -806,6 +875,39 @@ export default function App() {
           >
             <X size={13} />
           </button>
+        </aside>
+      )}
+
+      {(manualUpdateStatus === "current" ||
+        manualUpdateStatus === "error") && (
+        <aside
+          className={`check-toast ${manualUpdateStatus}`}
+          role="status"
+          aria-live="polite"
+        >
+          <span className="check-toast-icon">
+            {manualUpdateStatus === "current" ? (
+              <Check size={15} />
+            ) : (
+              <X size={15} />
+            )}
+          </span>
+          <div>
+            <strong>
+              {t(
+                manualUpdateStatus === "current"
+                  ? "updateUpToDate"
+                  : "updateCheckFailed",
+              )}
+            </strong>
+            <span>
+              {manualUpdateStatus === "current"
+                ? t("updateUpToDateDescription", {
+                    version: CURRENT_VERSION,
+                  })
+                : t("updateCheckFailedDescription")}
+            </span>
+          </div>
         </aside>
       )}
 
