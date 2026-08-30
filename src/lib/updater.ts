@@ -1,3 +1,4 @@
+import { check } from "@tauri-apps/plugin-updater";
 import packageInfo from "../../package.json";
 
 const GITHUB_RELEASES_URL = "https://github.com/GrayJS/desk-clock/releases/";
@@ -10,6 +11,7 @@ export const UPDATE_CHECK_INTERVAL_MS = 60 * 60 * 1000;
 export type AvailableUpdate = {
   version: string;
   releaseUrl: string;
+  installSilently?: () => Promise<void>;
 };
 
 type GitHubRelease = {
@@ -41,6 +43,17 @@ export function isVersionNewer(latest: string, current: string) {
 }
 
 export async function checkForUpdate(signal?: AbortSignal) {
+  if ("__TAURI_INTERNALS__" in window) {
+    const update = await check({ timeout: 20_000 });
+    if (!update) return null;
+
+    return {
+      version: update.version,
+      releaseUrl: `${GITHUB_RELEASES_URL}tag/v${update.version}`,
+      installSilently: () => update.downloadAndInstall(undefined, { timeout: 300_000 }),
+    } satisfies AvailableUpdate;
+  }
+
   const updateApiUrl =
     import.meta.env.VITE_UPDATE_API_URL?.trim() || DEFAULT_UPDATE_API_URL;
   const response = await fetch(updateApiUrl, {

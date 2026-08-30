@@ -42,10 +42,11 @@ Windows 10/11 x64 and Microsoft Edge WebView2 are required. WebView2 is normally
 
 ## Updates
 
-- Checks GitHub Releases once after launch
+- Checks for a signed update once after launch
 - Checks for new versions every hour in the background
 - Provides a manual update-check button in the title bar
-- Shows a download action and can send a Windows notification when an update is available
+- Downloads and installs updates silently while idle, without a manual reinstall
+- Defers installation during an active focus timer and only offers a manual download if automatic updating fails
 - Reports when Morrow is up to date or when the network check fails
 - Displays the current application version in the footer
 
@@ -54,7 +55,7 @@ Windows 10/11 x64 and Microsoft Edge WebView2 are required. WebView2 is normally
 - Focus history, the current goal, durations, theme, and language settings stay in local `localStorage`
 - No account is required
 - Focus history and quick notes are never uploaded
-- User data is never uploaded; network access may be used to load interface fonts and check the GitHub Releases API
+- User data is never uploaded; network access may be used to load interface fonts and check or download signed updates
 
 ## Development
 
@@ -83,6 +84,12 @@ The localized NSIS installer is generated in:
 src-tauri/target/release/bundle/nsis/
 ```
 
+Pushing a `v*` tag that matches the version in `tauri.conf.json` runs the GitHub
+Actions release workflow. It uploads the signed installer, `.sig`, and updater
+manifest (`latest.json`). CI reads the `TAURI_SIGNING_PRIVATE_KEY` and
+`TAURI_SIGNING_PRIVATE_KEY_PASSWORD` repository secrets; keep any local backup
+outside this repository.
+
 ## Project Structure
 
 ```text
@@ -101,3 +108,8 @@ docs/                        README screenshots
 - Three.js
 - Vite
 - Rust
+
+## License
+
+This project is available under the [MIT License](LICENSE). You may use, modify,
+and distribute it as long as the original copyright and license notice are kept.

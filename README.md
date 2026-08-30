@@ -42,10 +42,11 @@
 
 ## 版本更新
 
-- 启动应用后自动检查一次 GitHub Release
+- 启动应用后自动检查一次签名更新
 - 后台每 1 小时检查一次新版本
 - 标题栏提供手动检查更新按钮
-- 发现新版本时显示下载入口，并可发送 Windows 更新通知
+- 空闲时在后台静默下载并安装，不需要重新下载安装包
+- 专注计时进行中会延后安装，自动更新失败时才提供手动下载入口
 - 检查结果会反馈“已是最新版本”或网络错误状态
 - 当前应用版本显示在底部状态栏
 
@@ -54,7 +55,7 @@
 - 专注记录、当前目标、时长、主题和语言设置均保存在本机 `localStorage`
 - 不需要注册账号
 - 不上传专注记录或随手记
-- 不会上传用户数据；网络可能用于加载界面字体和检查 GitHub Release API
+- 不会上传用户数据；网络可能用于加载界面字体以及检查、下载签名更新
 
 ## 本地开发
 
@@ -83,6 +84,11 @@ npm run tauri build
 src-tauri/target/release/bundle/nsis/
 ```
 
+推送与 `tauri.conf.json` 版本一致的 `v*` 标签后，GitHub Actions 会构建 Release，
+并同时上传签名安装包、`.sig` 与更新清单 `latest.json`。CI 使用仓库中的
+`TAURI_SIGNING_PRIVATE_KEY` 和 `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` Secrets；
+本机备份应始终放在仓库之外。
+
 ## 项目结构
 
 ```text
@@ -101,3 +107,7 @@ docs/                        README 效果截图
 - Three.js
 - Vite
 - Rust
+
+## 开源协议
+
+本项目采用 [MIT License](LICENSE)。你可以自由使用、修改和分发，但需保留原始版权与许可声明。

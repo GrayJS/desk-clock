@@ -27,10 +27,6 @@ export async function setAppLanguage(locale: Locale) {
   if (isTauri()) await invoke("set_app_language", { locale });
 }
 
-export async function showUpdateNotification(title: string, body: string) {
-  if (isTauri()) await invoke("show_update_notification", { title, body });
-}
-
 export async function openReleasePage(url: string) {
   if (isTauri()) {
     await invoke("open_release_page", { url });

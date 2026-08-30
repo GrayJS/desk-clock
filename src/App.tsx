@@ -48,7 +48,6 @@ import {
   openReleasePage,
   scheduleTimerNotification,
   setAppLanguage,
-  showUpdateNotification,
 } from "./lib/background";
 import {
   checkForUpdate,
@@ -205,7 +204,9 @@ export default function App() {
   const completingRef = useRef(false);
   const lastUpdateCheckRef = useRef(0);
   const updateDismissedUntilRef = useRef(0);
-  const notifiedUpdateRef = useRef<string | null>(null);
+  const timerBusyRef = useRef(false);
+  const previousTimerBusyRef = useRef(false);
+  const updateInstallRef = useRef(false);
   const manualUpdateTimerRef = useRef<number | null>(null);
   const t = useMemo(() => createTranslator(locale), [locale]);
 
@@ -228,6 +229,11 @@ export default function App() {
   const tomatoGrowthProgress = mode === "focus" ? progress : 0;
   const remainingFocusMinutes = mode === "focus" ? remaining / 60 : currentMinutes;
   const isTomatoGrowing = mode === "focus" && remaining < totalSeconds;
+  const timerBusy = remaining < totalSeconds;
+
+  useEffect(() => {
+    timerBusyRef.current = timerBusy;
+  }, [timerBusy]);
 
   const finishSession = useCallback(() => {
     if (completingRef.current) return;
@@ -292,23 +298,46 @@ export default function App() {
     void setAppLanguage(locale);
   }, [locale, t]);
 
+  const installUpdate = useCallback(
+    async (update: AvailableUpdate, openFallback = false) => {
+      if (!update.installSilently) {
+        if (openFallback) await openReleasePage(update.releaseUrl);
+        return false;
+      }
+      if (updateInstallRef.current) return false;
+
+      updateInstallRef.current = true;
+      try {
+        await update.installSilently();
+        return true;
+      } catch {
+        if (openFallback) await openReleasePage(update.releaseUrl);
+        return false;
+      } finally {
+        updateInstallRef.current = false;
+      }
+    },
+    [],
+  );
+
   const runUpdateCheck = useCallback(
     async (signal?: AbortSignal) => {
       try {
         const update = await checkForUpdate(signal);
         lastUpdateCheckRef.current = Date.now();
-        if (!update) return "current" as const;
+        if (!update) {
+          setAvailableUpdate(null);
+          return "current" as const;
+        }
+
+        if (update.installSilently && !timerBusyRef.current) {
+          const started = await installUpdate(update);
+          if (started) return "installing" as const;
+        }
 
         setAvailableUpdate(update);
         if (Date.now() >= updateDismissedUntilRef.current) {
           setUpdateDismissed(false);
-        }
-        if (notifiedUpdateRef.current !== update.version) {
-          notifiedUpdateRef.current = update.version;
-          void showUpdateNotification(
-            t("updateNotificationTitle"),
-            t("updateNotificationBody", { version: update.version }),
-          );
         }
         return "available" as const;
       } catch (error) {
@@ -319,8 +348,18 @@ export default function App() {
         return "error" as const;
       }
     },
-    [t],
+    [installUpdate],
   );
+
+  useEffect(() => {
+    const becameIdle = previousTimerBusyRef.current && !timerBusy;
+    previousTimerBusyRef.current = timerBusy;
+    if (!becameIdle || !availableUpdate?.installSilently) return;
+
+    void installUpdate(availableUpdate).then((started) => {
+      if (!started) showManualUpdateStatus("error");
+    });
+  }, [availableUpdate, installUpdate, timerBusy]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -450,7 +489,7 @@ export default function App() {
     updateDismissedUntilRef.current = 0;
     setUpdateDismissed(false);
     const result = await runUpdateCheck();
-    if (result === "available") {
+    if (result === "available" || result === "installing") {
       showManualUpdateStatus("idle");
       return;
     }
@@ -863,7 +902,7 @@ export default function App() {
           </div>
           <button
             className="update-action"
-            onClick={() => void openReleasePage(availableUpdate.releaseUrl)}
+            onClick={() => void installUpdate(availableUpdate, true)}
           >
             {t("viewUpdate")} <ArrowUpRight size={12} />
           </button>

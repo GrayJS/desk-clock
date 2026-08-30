@@ -83,11 +83,6 @@ fn set_app_language(state: State<'_, TrayState>, locale: String) {
 }
 
 #[tauri::command]
-fn show_update_notification(app: AppHandle, title: String, body: String) {
-    let _ = app.notification().builder().title(title).body(body).show();
-}
-
-#[tauri::command]
 fn open_release_page(url: String) -> Result<(), String> {
     const RELEASES_URL: &str = "https://github.com/GrayJS/desk-clock/releases/";
     if !url.starts_with(RELEASES_URL) {
@@ -105,12 +100,12 @@ fn open_release_page(url: String) -> Result<(), String> {
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_notification::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(TimerState::default())
         .invoke_handler(tauri::generate_handler![
             schedule_timer_notification,
             cancel_timer_notification,
             set_app_language,
-            show_update_notification,
             open_release_page
         ])
         .setup(|app| {
