@@ -1,6 +1,6 @@
 [package]
 name = "morrow-desk-clock"
-version = "0.6.8"
+version = "0.6.9"
 description = "A lightweight Windows 11 desktop clock and focus timer"
 authors = ["Morrow"]
 license = "MIT"

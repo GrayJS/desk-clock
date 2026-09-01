@@ -17,7 +17,7 @@ export type ManualUpdateStatus = "idle" | "checking" | "current" | "error";
 
 export type AutoStartStatus = "loading" | "ready" | "saving" | "error";
 
-export type QuickAction =
+export type TrayAction =
   | "toggleTimer"
   | "resetTimer"
   | "nextMode"
@@ -25,11 +25,6 @@ export type QuickAction =
   | "openSettings"
   | "none";
 
-export type QuickIconPreference =
-  | "auto"
-  | "play"
-  | "bolt"
-  | "timer"
-  | "target"
-  | "leaf"
-  | "custom";
+export type TrayIconMode = "default" | "custom";
+
+export type TrayIconStatus = "idle" | "applying" | "ready" | "error";

@@ -3,6 +3,21 @@
 This file records user-visible changes that have not yet reached the latest
 stable release.
 
+## 0.6.9 (2026-09-01)
+
+### Added
+
+- Added configurable single-click and double-click actions to the Windows tray
+  icon, with delayed single-click handling to prevent double-click conflicts.
+- Added persistent custom Windows tray icons from PNG, JPG, or WebP images.
+
+### Changed
+
+- Replaced the incorrectly scoped in-window bottom quick action with Windows
+  tray interactions.
+- Replaced native action dropdowns with keyboard-accessible in-app menus for
+  consistent behavior inside the settings panel.
+
 ## 0.6.8 (2026-09-01)
 
 ### Added

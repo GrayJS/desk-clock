@@ -1,33 +1,30 @@
 import {
   Bell,
   Check,
+  ChevronDown,
   DownloadCloud,
+  ImagePlus,
   Languages,
-  Leaf,
   Maximize2,
   Monitor,
   MousePointerClick,
   Moon,
   Pin,
-  Pencil,
-  Play,
   RefreshCw,
   Rocket,
   Sun,
-  Target,
-  Timer,
   X,
-  Zap,
 } from "lucide-react";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Locale, MessageKey, Translate } from "../i18n";
 import type {
   AutoStartStatus,
   ManualUpdateStatus,
-  QuickAction,
-  QuickIconPreference,
   SizePreset,
   ThemePreference,
+  TrayAction,
+  TrayIconMode,
+  TrayIconStatus,
 } from "../types";
 
 const themeOptions: Array<{
@@ -51,8 +48,8 @@ const localeOptions: Array<{ value: Locale; labelKey: MessageKey }> = [
   { value: "en-US", labelKey: "english" },
 ];
 
-const quickActionOptions: Array<{
-  value: QuickAction;
+const trayActionOptions: Array<{
+  value: TrayAction;
   labelKey: MessageKey;
 }> = [
   { value: "toggleTimer", labelKey: "quickActionToggleTimer" },
@@ -63,19 +60,70 @@ const quickActionOptions: Array<{
   { value: "none", labelKey: "quickActionNone" },
 ];
 
-const quickIconOptions: Array<{
-  value: QuickIconPreference;
-  labelKey: MessageKey;
-  icon: typeof Monitor;
-}> = [
-  { value: "auto", labelKey: "quickIconAuto", icon: MousePointerClick },
-  { value: "play", labelKey: "quickIconPlay", icon: Play },
-  { value: "bolt", labelKey: "quickIconBolt", icon: Zap },
-  { value: "timer", labelKey: "quickIconTimer", icon: Timer },
-  { value: "target", labelKey: "quickIconTarget", icon: Target },
-  { value: "leaf", labelKey: "quickIconLeaf", icon: Leaf },
-  { value: "custom", labelKey: "quickIconCustom", icon: Pencil },
-];
+type TrayActionSelectProps = {
+  id: string;
+  label: string;
+  value: TrayAction;
+  open: boolean;
+  t: Translate;
+  onToggle: () => void;
+  onChange: (value: TrayAction) => void;
+};
+
+function TrayActionSelect({
+  id,
+  label,
+  value,
+  open,
+  t,
+  onToggle,
+  onChange,
+}: TrayActionSelectProps) {
+  const selected = trayActionOptions.find((option) => option.value === value)!;
+  const listId = `${id}-options`;
+
+  return (
+    <div className={`settings-select ${open ? "open" : ""}`}>
+      <span id={`${id}-label`} className="settings-select-label">{label}</span>
+      <button
+        type="button"
+        className="settings-select-trigger"
+        aria-label={`${label}：${t(selected.labelKey)}`}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-controls={listId}
+        onClick={onToggle}
+      >
+        <span>{t(selected.labelKey)}</span>
+        <ChevronDown size={12} />
+      </button>
+      {open && (
+        <div
+          id={listId}
+          className="settings-select-menu"
+          role="listbox"
+          aria-labelledby={`${id}-label`}
+        >
+          {trayActionOptions.map((option) => {
+            const active = option.value === value;
+            return (
+              <button
+                key={option.value}
+                type="button"
+                role="option"
+                aria-selected={active}
+                onClick={() => onChange(option.value)}
+              >
+                <span>{t(option.labelKey)}</span>
+                {active && <Check size={11} />}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
 
 type SettingsPanelProps = {
   t: Translate;
@@ -88,10 +136,11 @@ type SettingsPanelProps = {
   autoStartSupported: boolean;
   autoStartTitle: string;
   windowsNotificationsEnabled: boolean;
-  quickClickAction: QuickAction;
-  quickDoubleClickAction: QuickAction;
-  quickIconPreference: QuickIconPreference;
-  quickCustomIcon: string;
+  trayClickAction: TrayAction;
+  trayDoubleClickAction: TrayAction;
+  trayIconMode: TrayIconMode;
+  trayCustomIcon: string;
+  trayIconStatus: TrayIconStatus;
   manualUpdateStatus: ManualUpdateStatus;
   updateInstalling: boolean;
   availableUpdateVersion: string | null;
@@ -103,10 +152,10 @@ type SettingsPanelProps = {
   onAlwaysOnTopChange: (enabled: boolean) => void;
   onToggleAutoStart: () => void;
   onWindowsNotificationsChange: (enabled: boolean) => void;
-  onQuickClickActionChange: (action: QuickAction) => void;
-  onQuickDoubleClickActionChange: (action: QuickAction) => void;
-  onQuickIconPreferenceChange: (icon: QuickIconPreference) => void;
-  onQuickCustomIconChange: (icon: string) => void;
+  onTrayClickActionChange: (action: TrayAction) => void;
+  onTrayDoubleClickActionChange: (action: TrayAction) => void;
+  onTrayIconModeChange: (mode: TrayIconMode) => void;
+  onTrayIconFileChange: (file: File) => void;
   onCheckForUpdates: () => void;
   onInstallUpdate: () => void;
 };
@@ -122,10 +171,11 @@ export default function SettingsPanel({
   autoStartSupported,
   autoStartTitle,
   windowsNotificationsEnabled,
-  quickClickAction,
-  quickDoubleClickAction,
-  quickIconPreference,
-  quickCustomIcon,
+  trayClickAction,
+  trayDoubleClickAction,
+  trayIconMode,
+  trayCustomIcon,
+  trayIconStatus,
   manualUpdateStatus,
   updateInstalling,
   availableUpdateVersion,
@@ -137,14 +187,15 @@ export default function SettingsPanel({
   onAlwaysOnTopChange,
   onToggleAutoStart,
   onWindowsNotificationsChange,
-  onQuickClickActionChange,
-  onQuickDoubleClickActionChange,
-  onQuickIconPreferenceChange,
-  onQuickCustomIconChange,
+  onTrayClickActionChange,
+  onTrayDoubleClickActionChange,
+  onTrayIconModeChange,
+  onTrayIconFileChange,
   onCheckForUpdates,
   onInstallUpdate,
 }: SettingsPanelProps) {
   const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const [openSelect, setOpenSelect] = useState<"click" | "double" | null>(null);
   const autoStartBusy =
     autoStartStatus === "loading" || autoStartStatus === "saving";
   const updateBusy = manualUpdateStatus === "checking" || updateInstalling;
@@ -152,11 +203,16 @@ export default function SettingsPanel({
   useEffect(() => {
     closeButtonRef.current?.focus();
     const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
+      if (event.key !== "Escape") return;
+      if (openSelect) {
+        setOpenSelect(null);
+      } else {
+        onClose();
+      }
     };
     window.addEventListener("keydown", closeOnEscape);
     return () => window.removeEventListener("keydown", closeOnEscape);
-  }, [onClose]);
+  }, [onClose, openSelect]);
 
   const updateStatus = updateInstalling
     ? t("installingUpdate")
@@ -199,7 +255,13 @@ export default function SettingsPanel({
           </button>
         </header>
 
-        <div className="settings-body">
+        <div
+          className="settings-body"
+          onMouseDown={(event) => {
+            const target = event.target as HTMLElement;
+            if (!target.closest(".settings-select")) setOpenSelect(null);
+          }}
+        >
           <section className="settings-group">
             <div className="settings-group-title">
               <span>{t("appearanceSettings")}</span>
@@ -256,7 +318,7 @@ export default function SettingsPanel({
 
           <section className="settings-group">
             <div className="settings-group-title">
-              <span>{t("quickBarSettings")}</span>
+              <span>{t("traySettings")}</span>
             </div>
 
             <div className="settings-item settings-item-stack">
@@ -265,86 +327,100 @@ export default function SettingsPanel({
                   <MousePointerClick size={15} />
                 </span>
                 <div>
-                  <strong>{t("quickBarTitle")}</strong>
-                  <span>{t("quickBarDescription")}</span>
+                  <strong>{t("trayActionTitle")}</strong>
+                  <span>{t("trayActionDescription")}</span>
                 </div>
               </div>
-              <div className="quick-action-selects">
-                <label>
-                  <span>{t("quickClickAction")}</span>
-                  <select
-                    value={quickClickAction}
-                    aria-label={t("quickClickAction")}
-                    onChange={(event) =>
-                      onQuickClickActionChange(event.target.value as QuickAction)
-                    }
-                  >
-                    {quickActionOptions.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {t(option.labelKey)}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label>
-                  <span>{t("quickDoubleClickAction")}</span>
-                  <select
-                    value={quickDoubleClickAction}
-                    aria-label={t("quickDoubleClickAction")}
-                    onChange={(event) =>
-                      onQuickDoubleClickActionChange(
-                        event.target.value as QuickAction,
-                      )
-                    }
-                  >
-                    {quickActionOptions.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {t(option.labelKey)}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+              <div className="tray-action-selects">
+                <TrayActionSelect
+                  id="tray-click-action"
+                  label={t("trayClickAction")}
+                  value={trayClickAction}
+                  open={openSelect === "click"}
+                  t={t}
+                  onToggle={() =>
+                    setOpenSelect((current) =>
+                      current === "click" ? null : "click",
+                    )
+                  }
+                  onChange={(action) => {
+                    onTrayClickActionChange(action);
+                    setOpenSelect(null);
+                  }}
+                />
+                <TrayActionSelect
+                  id="tray-double-click-action"
+                  label={t("trayDoubleClickAction")}
+                  value={trayDoubleClickAction}
+                  open={openSelect === "double"}
+                  t={t}
+                  onToggle={() =>
+                    setOpenSelect((current) =>
+                      current === "double" ? null : "double",
+                    )
+                  }
+                  onChange={(action) => {
+                    onTrayDoubleClickActionChange(action);
+                    setOpenSelect(null);
+                  }}
+                />
               </div>
-              <div className="quick-icon-editor">
-                <span className="quick-icon-editor-title">
-                  {t("quickIconTitle")}
-                </span>
-                <div className="quick-icon-options">
-                  {quickIconOptions.map((option) => {
-                    const Icon = option.icon;
-                    const active = quickIconPreference === option.value;
-                    return (
-                      <button
-                        key={option.value}
-                        type="button"
-                        className={active ? "active" : ""}
-                        aria-label={t(option.labelKey)}
-                        aria-pressed={active}
-                        title={t(option.labelKey)}
-                        onClick={() => onQuickIconPreferenceChange(option.value)}
-                      >
-                        <Icon size={12} />
-                        <span>{t(option.labelKey)}</span>
-                      </button>
-                    );
-                  })}
+              <div className="tray-icon-editor">
+                <span className="tray-icon-editor-title">{t("trayIconTitle")}</span>
+                <div className="settings-options settings-options-two tray-icon-modes">
+                  <button
+                    type="button"
+                    className={trayIconMode === "default" ? "active" : ""}
+                    aria-pressed={trayIconMode === "default"}
+                    onClick={() => onTrayIconModeChange("default")}
+                  >
+                    <Monitor size={12} />
+                    <span>{t("trayIconDefault")}</span>
+                  </button>
+                  <button
+                    type="button"
+                    className={trayIconMode === "custom" ? "active" : ""}
+                    aria-pressed={trayIconMode === "custom"}
+                    onClick={() => onTrayIconModeChange("custom")}
+                  >
+                    <ImagePlus size={12} />
+                    <span>{t("trayIconCustom")}</span>
+                  </button>
                 </div>
-                {quickIconPreference === "custom" && (
-                  <label className="quick-custom-icon-input">
-                    <span>{t("quickCustomIconLabel")}</span>
+                {trayIconMode === "custom" && (
+                  <label className="tray-icon-upload">
                     <input
-                      value={quickCustomIcon}
-                      maxLength={8}
-                      aria-label={t("quickCustomIconLabel")}
-                      placeholder={t("quickCustomIconPlaceholder")}
-                      onChange={(event) =>
-                        onQuickCustomIconChange(event.target.value)
-                      }
+                      type="file"
+                      accept="image/png,image/jpeg,image/webp"
+                      aria-label={t("trayIconChooseFile")}
+                      onChange={(event) => {
+                        const file = event.target.files?.[0];
+                        if (file) onTrayIconFileChange(file);
+                        event.target.value = "";
+                      }}
                     />
-                    <b aria-hidden="true">
-                      {quickCustomIcon.trim() || "★"}
-                    </b>
+                    <span className="tray-icon-preview" aria-hidden="true">
+                      {trayCustomIcon ? (
+                        <img src={trayCustomIcon} alt="" />
+                      ) : (
+                        <ImagePlus size={16} />
+                      )}
+                    </span>
+                    <span className="tray-icon-upload-copy">
+                      <strong>
+                        {t(trayCustomIcon ? "trayIconReplace" : "trayIconChooseFile")}
+                      </strong>
+                      <small>{t("trayIconFileHint")}</small>
+                    </span>
                   </label>
+                )}
+                {trayIconStatus === "applying" && (
+                  <small className="tray-icon-status">{t("trayIconApplying")}</small>
+                )}
+                {trayIconStatus === "error" && (
+                  <small className="tray-icon-status error-text">
+                    {t("trayIconError")}
+                  </small>
                 )}
               </div>
             </div>

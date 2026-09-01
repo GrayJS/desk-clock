@@ -4,7 +4,7 @@
 
 A lightweight desktop clock and focus companion for Windows 11, built with Tauri 2, React, TypeScript, and Three.js—without Electron.
 
-Current stable release: [`v0.6.8`](https://github.com/GrayJS/desk-clock/releases/latest)
+Current stable release: [`v0.6.9`](https://github.com/GrayJS/desk-clock/releases/latest)
 
 ## Preview
 
@@ -23,7 +23,7 @@ Windows 10/11 x64 and Microsoft Edge WebView2 are required. WebView2 is normally
 - Live clock and date with always-on-top enabled by default
 - Compact, standard, and expanded window presets with title-bar quick switching, free resizing, and dragging
 - Compact mode keeps mode switching, countdown, start/pause, reset, and progress controls
-- Standard and expanded modes include a bottom quick bar with animated icon feedback that starts or pauses the timer with one click by default
+- The Windows tray icon supports separate click and double-click actions plus custom PNG, JPG, or WebP icons
 - Dark, light, and Windows system theme modes
 - Instant Simplified Chinese and English switching
 - Unified settings panel for appearance, window, startup, and update options
@@ -42,7 +42,7 @@ take effect immediately:
 
 - **Appearance**: system, light, or dark theme and Simplified Chinese or English
 - **Window**: compact, standard, or expanded size and always-on-top behavior
-- **Quick bar**: configure separate click and double-click actions for start/pause, reset, next mode, always on top, settings, or no action; let the icon follow the action, choose a built-in icon, or enter a custom emoji or symbol
+- **Windows tray**: configure separate tray-icon click and double-click actions for start/pause, reset, next mode, always on top, settings, or no action; upload a custom tray icon when preferred
 - **System**: start at login, Windows timer notifications, and signed update checks
 
 Always on top and window-size switching remain available as title-bar shortcuts;
@@ -91,7 +91,7 @@ the preset that will be selected on the next click.
 
 ## Data and Privacy
 
-- Focus history, the current goal, durations, theme, language, window size, always-on-top, notification, and quick-action preferences stay in local `localStorage`
+- Focus history, the current goal, durations, theme, language, window size, always-on-top, notification, and tray preferences stay in local `localStorage`
 - Start at login is managed by the Windows login entry and is never uploaded to a remote service
 - No account is required
 - Focus history and quick notes are never uploaded
