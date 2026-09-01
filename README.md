@@ -4,7 +4,7 @@
 
 一款面向 Windows 11 的轻量桌面时钟与专注工具。使用 Tauri 2、React、TypeScript 和 Three.js 构建，不依赖 Electron。
 
-当前稳定版本：[`v0.6.4`](https://github.com/GrayJS/desk-clock/releases/latest)
+当前稳定版本：[`v0.6.5`](https://github.com/GrayJS/desk-clock/releases/latest)
 
 ## 效果预览
 

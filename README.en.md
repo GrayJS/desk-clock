@@ -4,7 +4,7 @@
 
 A lightweight desktop clock and focus companion for Windows 11, built with Tauri 2, React, TypeScript, and Three.js—without Electron.
 
-Current stable release: [`v0.6.4`](https://github.com/GrayJS/desk-clock/releases/latest)
+Current stable release: [`v0.6.5`](https://github.com/GrayJS/desk-clock/releases/latest)
 
 ## Preview
 
