@@ -197,6 +197,8 @@ export default function App() {
   const [autoStartEnabled, setAutoStartEnabledState] = useState(false);
   const [autoStartStatus, setAutoStartStatus] =
     useState<AutoStartStatus>("loading");
+  const [windowsNotificationsEnabled, setWindowsNotificationsEnabled] =
+    usePersistentState("morrow.windowsNotifications", true);
   const completingRef = useRef(false);
   const lastUpdateCheckRef = useRef(0);
   const updateDismissedUntilRef = useRef(0);
@@ -401,13 +403,7 @@ export default function App() {
     setRemaining(totalSeconds);
   };
 
-  const toggleTimer = () => {
-    if (running) {
-      void cancelTimerNotification();
-      setRunning(false);
-      return;
-    }
-
+  const scheduleCurrentTimerNotification = (seconds: number) => {
     const isFocus = mode === "focus";
     const title = t(isFocus ? "notificationFocusTitle" : "notificationRestTitle");
     const body = isFocus
@@ -415,7 +411,19 @@ export default function App() {
         ? t("notificationFocusTask", { task: task.trim() })
         : t("notificationFocus")
       : t("notificationRest");
-    void scheduleTimerNotification(remaining, title, body);
+    void scheduleTimerNotification(seconds, title, body);
+  };
+
+  const toggleTimer = () => {
+    if (running) {
+      void cancelTimerNotification();
+      setRunning(false);
+      return;
+    }
+
+    if (windowsNotificationsEnabled) {
+      scheduleCurrentTimerNotification(remaining);
+    }
     setRunning(true);
   };
 
@@ -506,6 +514,15 @@ export default function App() {
       setAutoStartStatus("ready");
     } catch {
       setAutoStartStatus("error");
+    }
+  };
+
+  const changeWindowsNotifications = (enabled: boolean) => {
+    setWindowsNotificationsEnabled(enabled);
+    if (!enabled) {
+      void cancelTimerNotification();
+    } else if (running) {
+      scheduleCurrentTimerNotification(remaining);
     }
   };
 
@@ -889,6 +906,7 @@ export default function App() {
           autoStartStatus={autoStartStatus}
           autoStartSupported={supportsAutoStart()}
           autoStartTitle={autoStartTitle}
+          windowsNotificationsEnabled={windowsNotificationsEnabled}
           manualUpdateStatus={manualUpdateStatus}
           updateInstalling={updateInstalling}
           availableUpdateVersion={availableUpdate?.version ?? null}
@@ -899,6 +917,7 @@ export default function App() {
           onSizeChange={(preset) => void applySize(preset)}
           onAlwaysOnTopChange={setPinned}
           onToggleAutoStart={() => void toggleAutoStart()}
+          onWindowsNotificationsChange={changeWindowsNotifications}
           onCheckForUpdates={() => void manuallyCheckForUpdates()}
           onInstallUpdate={() => {
             if (availableUpdate) void installUpdate(availableUpdate, true);

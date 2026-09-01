@@ -3,6 +3,18 @@
 This file records user-visible changes that have not yet reached the latest
 stable release.
 
+## 0.6.7 (2026-09-01)
+
+### Added
+
+- Added a persistent setting to enable or disable Windows timer-completion
+  notifications. Disabling it also cancels a notification already scheduled
+  for the current timer.
+
+### Fixed
+
+- Centered the settings panel horizontally at every window-size preset.
+
 ## 0.6.6 (2026-09-01)
 
 ### Added

@@ -1,4 +1,5 @@
 import {
+  Bell,
   Check,
   DownloadCloud,
   Languages,
@@ -51,6 +52,7 @@ type SettingsPanelProps = {
   autoStartStatus: AutoStartStatus;
   autoStartSupported: boolean;
   autoStartTitle: string;
+  windowsNotificationsEnabled: boolean;
   manualUpdateStatus: ManualUpdateStatus;
   updateInstalling: boolean;
   availableUpdateVersion: string | null;
@@ -61,6 +63,7 @@ type SettingsPanelProps = {
   onSizeChange: (size: SizePreset) => void;
   onAlwaysOnTopChange: (enabled: boolean) => void;
   onToggleAutoStart: () => void;
+  onWindowsNotificationsChange: (enabled: boolean) => void;
   onCheckForUpdates: () => void;
   onInstallUpdate: () => void;
 };
@@ -75,6 +78,7 @@ export default function SettingsPanel({
   autoStartStatus,
   autoStartSupported,
   autoStartTitle,
+  windowsNotificationsEnabled,
   manualUpdateStatus,
   updateInstalling,
   availableUpdateVersion,
@@ -85,6 +89,7 @@ export default function SettingsPanel({
   onSizeChange,
   onAlwaysOnTopChange,
   onToggleAutoStart,
+  onWindowsNotificationsChange,
   onCheckForUpdates,
   onInstallUpdate,
 }: SettingsPanelProps) {
@@ -275,6 +280,31 @@ export default function SettingsPanel({
                 title={autoStartTitle}
                 disabled={!autoStartSupported || autoStartBusy}
                 onClick={onToggleAutoStart}
+              >
+                <span />
+              </button>
+            </div>
+
+            <div className="settings-item">
+              <div className="settings-item-copy">
+                <span className="settings-item-icon"><Bell size={15} /></span>
+                <div>
+                  <strong>{t("windowsNotifications")}</strong>
+                  <span>{t("windowsNotificationsDescription")}</span>
+                </div>
+              </div>
+              <button
+                className={`settings-switch ${
+                  windowsNotificationsEnabled ? "enabled" : ""
+                }`}
+                type="button"
+                role="switch"
+                aria-checked={windowsNotificationsEnabled}
+                aria-label={t("windowsNotifications")}
+                title={t("windowsNotificationsDescription")}
+                onClick={() =>
+                  onWindowsNotificationsChange(!windowsNotificationsEnabled)
+                }
               >
                 <span />
               </button>

@@ -4,7 +4,7 @@
 
 A lightweight desktop clock and focus companion for Windows 11, built with Tauri 2, React, TypeScript, and Three.js—without Electron.
 
-Current stable release: [`v0.6.6`](https://github.com/GrayJS/desk-clock/releases/latest)
+Current stable release: [`v0.6.7`](https://github.com/GrayJS/desk-clock/releases/latest)
 
 ## Preview
 
@@ -31,7 +31,7 @@ Windows 10/11 x64 and Microsoft Edge WebView2 are required. WebView2 is normally
 - Current goal, quick notes, and completed focus-session history
 - System tray background mode with restore and quit actions
 - Optional start at login, synchronized with the actual Windows startup entry
-- Native background timing and Windows notifications when a session ends
+- Native background timing with optional Windows notifications when a session ends
 - Frameless transparent window, responsive layout, and Windows 11-inspired motion
 
 ## Settings
@@ -41,7 +41,7 @@ take effect immediately:
 
 - **Appearance**: system, light, or dark theme and Simplified Chinese or English
 - **Window**: compact, standard, or expanded size and always-on-top behavior
-- **System**: start at login and signed update checks
+- **System**: start at login, Windows timer notifications, and signed update checks
 
 Always on top and window-size switching remain available as title-bar shortcuts;
 the size button cycles through compact, standard, and expanded presets. Start at
@@ -89,7 +89,7 @@ the preset that will be selected on the next click.
 
 ## Data and Privacy
 
-- Focus history, the current goal, durations, theme, language, window size, and always-on-top preference stay in local `localStorage`
+- Focus history, the current goal, durations, theme, language, window size, always-on-top, and notification preferences stay in local `localStorage`
 - Start at login is managed by the Windows login entry and is never uploaded to a remote service
 - No account is required
 - Focus history and quick notes are never uploaded
