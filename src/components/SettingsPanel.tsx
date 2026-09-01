@@ -3,20 +3,29 @@ import {
   Check,
   DownloadCloud,
   Languages,
+  Leaf,
   Maximize2,
   Monitor,
+  MousePointerClick,
   Moon,
   Pin,
+  Pencil,
+  Play,
   RefreshCw,
   Rocket,
   Sun,
+  Target,
+  Timer,
   X,
+  Zap,
 } from "lucide-react";
 import { useEffect, useRef } from "react";
 import type { Locale, MessageKey, Translate } from "../i18n";
 import type {
   AutoStartStatus,
   ManualUpdateStatus,
+  QuickAction,
+  QuickIconPreference,
   SizePreset,
   ThemePreference,
 } from "../types";
@@ -42,6 +51,32 @@ const localeOptions: Array<{ value: Locale; labelKey: MessageKey }> = [
   { value: "en-US", labelKey: "english" },
 ];
 
+const quickActionOptions: Array<{
+  value: QuickAction;
+  labelKey: MessageKey;
+}> = [
+  { value: "toggleTimer", labelKey: "quickActionToggleTimer" },
+  { value: "resetTimer", labelKey: "quickActionResetTimer" },
+  { value: "nextMode", labelKey: "quickActionNextMode" },
+  { value: "togglePin", labelKey: "quickActionTogglePin" },
+  { value: "openSettings", labelKey: "quickActionOpenSettings" },
+  { value: "none", labelKey: "quickActionNone" },
+];
+
+const quickIconOptions: Array<{
+  value: QuickIconPreference;
+  labelKey: MessageKey;
+  icon: typeof Monitor;
+}> = [
+  { value: "auto", labelKey: "quickIconAuto", icon: MousePointerClick },
+  { value: "play", labelKey: "quickIconPlay", icon: Play },
+  { value: "bolt", labelKey: "quickIconBolt", icon: Zap },
+  { value: "timer", labelKey: "quickIconTimer", icon: Timer },
+  { value: "target", labelKey: "quickIconTarget", icon: Target },
+  { value: "leaf", labelKey: "quickIconLeaf", icon: Leaf },
+  { value: "custom", labelKey: "quickIconCustom", icon: Pencil },
+];
+
 type SettingsPanelProps = {
   t: Translate;
   locale: Locale;
@@ -53,6 +88,10 @@ type SettingsPanelProps = {
   autoStartSupported: boolean;
   autoStartTitle: string;
   windowsNotificationsEnabled: boolean;
+  quickClickAction: QuickAction;
+  quickDoubleClickAction: QuickAction;
+  quickIconPreference: QuickIconPreference;
+  quickCustomIcon: string;
   manualUpdateStatus: ManualUpdateStatus;
   updateInstalling: boolean;
   availableUpdateVersion: string | null;
@@ -64,6 +103,10 @@ type SettingsPanelProps = {
   onAlwaysOnTopChange: (enabled: boolean) => void;
   onToggleAutoStart: () => void;
   onWindowsNotificationsChange: (enabled: boolean) => void;
+  onQuickClickActionChange: (action: QuickAction) => void;
+  onQuickDoubleClickActionChange: (action: QuickAction) => void;
+  onQuickIconPreferenceChange: (icon: QuickIconPreference) => void;
+  onQuickCustomIconChange: (icon: string) => void;
   onCheckForUpdates: () => void;
   onInstallUpdate: () => void;
 };
@@ -79,6 +122,10 @@ export default function SettingsPanel({
   autoStartSupported,
   autoStartTitle,
   windowsNotificationsEnabled,
+  quickClickAction,
+  quickDoubleClickAction,
+  quickIconPreference,
+  quickCustomIcon,
   manualUpdateStatus,
   updateInstalling,
   availableUpdateVersion,
@@ -90,6 +137,10 @@ export default function SettingsPanel({
   onAlwaysOnTopChange,
   onToggleAutoStart,
   onWindowsNotificationsChange,
+  onQuickClickActionChange,
+  onQuickDoubleClickActionChange,
+  onQuickIconPreferenceChange,
+  onQuickCustomIconChange,
   onCheckForUpdates,
   onInstallUpdate,
 }: SettingsPanelProps) {
@@ -199,6 +250,102 @@ export default function SettingsPanel({
                     {locale === option.value && <Check size={11} />}
                   </button>
                 ))}
+              </div>
+            </div>
+          </section>
+
+          <section className="settings-group">
+            <div className="settings-group-title">
+              <span>{t("quickBarSettings")}</span>
+            </div>
+
+            <div className="settings-item settings-item-stack">
+              <div className="settings-item-copy">
+                <span className="settings-item-icon">
+                  <MousePointerClick size={15} />
+                </span>
+                <div>
+                  <strong>{t("quickBarTitle")}</strong>
+                  <span>{t("quickBarDescription")}</span>
+                </div>
+              </div>
+              <div className="quick-action-selects">
+                <label>
+                  <span>{t("quickClickAction")}</span>
+                  <select
+                    value={quickClickAction}
+                    aria-label={t("quickClickAction")}
+                    onChange={(event) =>
+                      onQuickClickActionChange(event.target.value as QuickAction)
+                    }
+                  >
+                    {quickActionOptions.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {t(option.labelKey)}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  <span>{t("quickDoubleClickAction")}</span>
+                  <select
+                    value={quickDoubleClickAction}
+                    aria-label={t("quickDoubleClickAction")}
+                    onChange={(event) =>
+                      onQuickDoubleClickActionChange(
+                        event.target.value as QuickAction,
+                      )
+                    }
+                  >
+                    {quickActionOptions.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {t(option.labelKey)}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+              <div className="quick-icon-editor">
+                <span className="quick-icon-editor-title">
+                  {t("quickIconTitle")}
+                </span>
+                <div className="quick-icon-options">
+                  {quickIconOptions.map((option) => {
+                    const Icon = option.icon;
+                    const active = quickIconPreference === option.value;
+                    return (
+                      <button
+                        key={option.value}
+                        type="button"
+                        className={active ? "active" : ""}
+                        aria-label={t(option.labelKey)}
+                        aria-pressed={active}
+                        title={t(option.labelKey)}
+                        onClick={() => onQuickIconPreferenceChange(option.value)}
+                      >
+                        <Icon size={12} />
+                        <span>{t(option.labelKey)}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+                {quickIconPreference === "custom" && (
+                  <label className="quick-custom-icon-input">
+                    <span>{t("quickCustomIconLabel")}</span>
+                    <input
+                      value={quickCustomIcon}
+                      maxLength={8}
+                      aria-label={t("quickCustomIconLabel")}
+                      placeholder={t("quickCustomIconPlaceholder")}
+                      onChange={(event) =>
+                        onQuickCustomIconChange(event.target.value)
+                      }
+                    />
+                    <b aria-hidden="true">
+                      {quickCustomIcon.trim() || "★"}
+                    </b>
+                  </label>
+                )}
               </div>
             </div>
           </section>

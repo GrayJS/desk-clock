@@ -3,6 +3,24 @@
 This file records user-visible changes that have not yet reached the latest
 stable release.
 
+## 0.6.8 (2026-09-01)
+
+### Added
+
+- Added a bottom quick-action button that starts or pauses the timer by default.
+- Added persistent settings for separate click and double-click actions. Presets
+  include start/pause, reset, next mode, always on top, open settings, and no
+  action.
+- Added persistent quick-bar icon settings with action-aware and built-in presets,
+  plus custom emoji or symbol support.
+
+### Changed
+
+- Added action-specific icon feedback animations to the bottom quick-action
+  button, with reduced-motion support.
+- Improved click and double-click handling with immediate pending feedback,
+  pressed states, and cancellation when settings opens.
+
 ## 0.6.7 (2026-09-01)
 
 ### Added

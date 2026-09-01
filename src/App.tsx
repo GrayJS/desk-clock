@@ -5,6 +5,7 @@ import {
   Clock3,
   DownloadCloud,
   History,
+  Leaf,
   Maximize2,
   Minimize2,
   Minus,
@@ -18,10 +19,12 @@ import {
   Sparkles,
   Sprout,
   Square,
+  Target,
   Timer,
   TimerReset,
   Trash2,
   X,
+  Zap,
 } from "lucide-react";
 import {
   lazy,
@@ -68,6 +71,8 @@ import {
 import type {
   AutoStartStatus,
   ManualUpdateStatus,
+  QuickAction,
+  QuickIconPreference,
   SessionRecord,
   SizePreset,
   ThemePreference,
@@ -101,6 +106,17 @@ const defaultDurations: Record<TimerMode, number> = {
 };
 
 const sizePresetOrder: SizePreset[] = ["compact", "standard", "expanded"];
+
+const timerModeOrder: TimerMode[] = ["focus", "short", "long"];
+
+const quickActionLabelKeys: Record<QuickAction, MessageKey> = {
+  toggleTimer: "quickActionToggleTimer",
+  resetTimer: "quickActionResetTimer",
+  nextMode: "quickActionNextMode",
+  togglePin: "quickActionTogglePin",
+  openSettings: "quickActionOpenSettings",
+  none: "quickActionNone",
+};
 
 const sizeLabelKeys: Record<SizePreset, MessageKey> = {
   compact: "sizeCompact",
@@ -199,11 +215,30 @@ export default function App() {
     useState<AutoStartStatus>("loading");
   const [windowsNotificationsEnabled, setWindowsNotificationsEnabled] =
     usePersistentState("morrow.windowsNotifications", true);
+  const [quickClickAction, setQuickClickAction] =
+    usePersistentState<QuickAction>("morrow.quickClickAction", "toggleTimer");
+  const [quickDoubleClickAction, setQuickDoubleClickAction] =
+    usePersistentState<QuickAction>(
+      "morrow.quickDoubleClickAction",
+      "openSettings",
+    );
+  const [quickIconPreference, setQuickIconPreference] =
+    usePersistentState<QuickIconPreference>("morrow.quickIcon", "auto");
+  const [quickCustomIcon, setQuickCustomIcon] = usePersistentState(
+    "morrow.quickCustomIcon",
+    "⚡",
+  );
+  const [quickIconFeedback, setQuickIconFeedback] = useState<{
+    id: number;
+    action: QuickAction;
+  }>({ id: 0, action: "none" });
+  const [quickActionPending, setQuickActionPending] = useState(false);
   const completingRef = useRef(false);
   const lastUpdateCheckRef = useRef(0);
   const updateDismissedUntilRef = useRef(0);
   const updateInstallRef = useRef(false);
   const manualUpdateTimerRef = useRef<number | null>(null);
+  const quickClickTimerRef = useRef<number | null>(null);
   const t = useMemo(() => createTranslator(locale), [locale]);
 
   const currentMinutes = durations[mode] ?? defaultDurations[mode];
@@ -383,9 +418,19 @@ export default function App() {
       if (manualUpdateTimerRef.current !== null) {
         window.clearTimeout(manualUpdateTimerRef.current);
       }
+      if (quickClickTimerRef.current !== null) {
+        window.clearTimeout(quickClickTimerRef.current);
+      }
     },
     [],
   );
+
+  useEffect(() => {
+    if (!settingsOpen || quickClickTimerRef.current === null) return;
+    window.clearTimeout(quickClickTimerRef.current);
+    quickClickTimerRef.current = null;
+    setQuickActionPending(false);
+  }, [settingsOpen]);
 
   const switchMode = (nextMode: TimerMode) => {
     void cancelTimerNotification();
@@ -526,6 +571,61 @@ export default function App() {
     }
   };
 
+  const runQuickAction = (action: QuickAction) => {
+    if (action !== "none") {
+      setQuickIconFeedback((current) => ({
+        id: current.id + 1,
+        action,
+      }));
+    }
+    switch (action) {
+      case "toggleTimer":
+        toggleTimer();
+        break;
+      case "resetTimer":
+        resetTimer();
+        break;
+      case "nextMode": {
+        const nextMode =
+          timerModeOrder[
+            (timerModeOrder.indexOf(mode) + 1) % timerModeOrder.length
+          ];
+        switchMode(nextMode);
+        break;
+      }
+      case "togglePin":
+        setPinned((current) => !current);
+        break;
+      case "openSettings":
+        setDurationMenuOpen(false);
+        setSettingsOpen(true);
+        break;
+      case "none":
+        break;
+    }
+  };
+
+  const handleQuickActionClick = () => {
+    setQuickActionPending(true);
+    if (quickClickTimerRef.current !== null) {
+      window.clearTimeout(quickClickTimerRef.current);
+    }
+    quickClickTimerRef.current = window.setTimeout(() => {
+      setQuickActionPending(false);
+      runQuickAction(quickClickAction);
+      quickClickTimerRef.current = null;
+    }, 260);
+  };
+
+  const handleQuickActionDoubleClick = () => {
+    if (quickClickTimerRef.current !== null) {
+      window.clearTimeout(quickClickTimerRef.current);
+      quickClickTimerRef.current = null;
+    }
+    setQuickActionPending(false);
+    runQuickAction(quickDoubleClickAction);
+  };
+
   const autoStartTitle = t(
     autoStartStatus === "loading"
       ? "autoStartLoading"
@@ -554,6 +654,51 @@ export default function App() {
   const quickResizeTitle = t("quickResizeTitle", {
     current: t(sizeLabelKeys[sizePreset]),
     next: t(sizeLabelKeys[nextSizePreset]),
+  });
+  const AutoFooterQuickIcon =
+    quickClickAction === "toggleTimer"
+      ? running
+        ? Pause
+        : Play
+      : quickClickAction === "resetTimer"
+        ? RotateCcw
+        : quickClickAction === "nextMode"
+          ? Timer
+          : quickClickAction === "togglePin"
+            ? Pin
+            : quickClickAction === "openSettings"
+              ? Settings2
+              : Minus;
+  const FooterQuickIcon =
+    quickIconPreference === "auto"
+      ? AutoFooterQuickIcon
+      : quickIconPreference === "play"
+        ? Play
+        : quickIconPreference === "bolt"
+          ? Zap
+          : quickIconPreference === "timer"
+            ? Timer
+            : quickIconPreference === "target"
+              ? Target
+              : quickIconPreference === "leaf"
+                ? Leaf
+                : null;
+  const customQuickIcon =
+    Array.from(quickCustomIcon.trim()).slice(0, 4).join("") || "★";
+  const fillFooterQuickIcon =
+    quickIconPreference === "play" ||
+    (quickIconPreference === "auto" &&
+      quickClickAction === "toggleTimer" &&
+      !running);
+  const footerQuickLabel =
+    quickClickAction === "toggleTimer"
+      ? running
+        ? t("pause")
+        : t(startLabelKeys[mode])
+      : t(quickActionLabelKeys[quickClickAction]);
+  const footerQuickTitle = t("quickActionHint", {
+    click: t(quickActionLabelKeys[quickClickAction]),
+    doubleClick: t(quickActionLabelKeys[quickDoubleClickAction]),
   });
   return (
     <main
@@ -907,6 +1052,10 @@ export default function App() {
           autoStartSupported={supportsAutoStart()}
           autoStartTitle={autoStartTitle}
           windowsNotificationsEnabled={windowsNotificationsEnabled}
+          quickClickAction={quickClickAction}
+          quickDoubleClickAction={quickDoubleClickAction}
+          quickIconPreference={quickIconPreference}
+          quickCustomIcon={quickCustomIcon}
           manualUpdateStatus={manualUpdateStatus}
           updateInstalling={updateInstalling}
           availableUpdateVersion={availableUpdate?.version ?? null}
@@ -918,6 +1067,12 @@ export default function App() {
           onAlwaysOnTopChange={setPinned}
           onToggleAutoStart={() => void toggleAutoStart()}
           onWindowsNotificationsChange={changeWindowsNotifications}
+          onQuickClickActionChange={setQuickClickAction}
+          onQuickDoubleClickActionChange={setQuickDoubleClickAction}
+          onQuickIconPreferenceChange={setQuickIconPreference}
+          onQuickCustomIconChange={(icon) =>
+            setQuickCustomIcon(Array.from(icon).slice(0, 4).join(""))
+          }
           onCheckForUpdates={() => void manuallyCheckForUpdates()}
           onInstallUpdate={() => {
             if (availableUpdate) void installUpdate(availableUpdate, true);
@@ -997,6 +1152,34 @@ export default function App() {
           {running ? t("stayFocused") : t("ready")}
           <b className="footer-version">v{CURRENT_VERSION}</b>
         </span>
+        <button
+          className={`footer-quick-action ${
+            running && quickClickAction === "toggleTimer" ? "running" : ""
+          } ${quickActionPending ? "pending" : ""}`}
+          aria-label={footerQuickTitle}
+          aria-busy={quickActionPending}
+          title={footerQuickTitle}
+          onClick={handleQuickActionClick}
+          onDoubleClick={handleQuickActionDoubleClick}
+        >
+          <span
+            key={quickIconFeedback.id}
+            className={`footer-quick-icon action-${quickIconFeedback.action}`}
+            aria-hidden="true"
+          >
+            {quickIconPreference === "custom" ? (
+              <span className="footer-custom-icon">{customQuickIcon}</span>
+            ) : (
+              FooterQuickIcon && (
+                <FooterQuickIcon
+                  size={11}
+                  fill={fillFooterQuickIcon ? "currentColor" : "none"}
+                />
+              )
+            )}
+          </span>
+          <span>{footerQuickLabel}</span>
+        </button>
       </footer>
     </main>
   );
