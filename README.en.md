@@ -28,6 +28,7 @@ Windows 10/11 x64 and Microsoft Edge WebView2 are required. WebView2 is normally
 - Quick duration presets and custom 1–180 minute countdowns
 - Current goal, quick notes, and completed focus-session history
 - System tray background mode with restore and quit actions
+- Optional start at login, synchronized with the actual Windows startup entry
 - Native background timing and Windows notifications when a session ends
 - Frameless transparent window, responsive layout, and Windows 11-inspired motion
 

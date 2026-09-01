@@ -1,6 +1,6 @@
 [package]
 name = "morrow-desk-clock"
-version = "0.6.4"
+version = "0.6.5"
 description = "A lightweight Windows 11 desktop clock and focus timer"
 authors = ["Morrow"]
 license = "MIT"
@@ -17,5 +17,6 @@ tauri-build = { version = "2", features = [] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 tauri = { version = "2", features = ["tray-icon"] }
+tauri-plugin-autostart = "2.5.1"
 tauri-plugin-notification = "2"
 tauri-plugin-updater = "2.10.1"

@@ -44,6 +44,11 @@ import {
   type MessageKey,
 } from "./i18n";
 import {
+  getAutoStartEnabled,
+  setAutoStartEnabled,
+  supportsAutoStart,
+} from "./lib/autostart";
+import {
   cancelTimerNotification,
   openReleasePage,
   scheduleTimerNotification,
@@ -98,6 +103,7 @@ const durationPresets: Record<TimerMode, number[]> = {
 
 type ThemePreference = "system" | "light" | "dark";
 type ManualUpdateStatus = "idle" | "checking" | "current" | "error";
+type AutoStartStatus = "loading" | "ready" | "saving" | "error";
 
 const themeOptions: Array<{
   value: ThemePreference;
@@ -201,6 +207,9 @@ export default function App() {
   const [updateDismissed, setUpdateDismissed] = useState(false);
   const [manualUpdateStatus, setManualUpdateStatus] =
     useState<ManualUpdateStatus>("idle");
+  const [autoStartEnabled, setAutoStartEnabledState] = useState(false);
+  const [autoStartStatus, setAutoStartStatus] =
+    useState<AutoStartStatus>("loading");
   const completingRef = useRef(false);
   const lastUpdateCheckRef = useRef(0);
   const updateDismissedUntilRef = useRef(0);
@@ -297,6 +306,22 @@ export default function App() {
     document.title = t("appTitle");
     void setAppLanguage(locale);
   }, [locale, t]);
+
+  useEffect(() => {
+    let active = true;
+    void getAutoStartEnabled()
+      .then((enabled) => {
+        if (!active) return;
+        setAutoStartEnabledState(enabled);
+        setAutoStartStatus("ready");
+      })
+      .catch(() => {
+        if (active) setAutoStartStatus("error");
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const installUpdate = useCallback(
     async (update: AvailableUpdate, openFallback = false) => {
@@ -500,6 +525,31 @@ export default function App() {
     }
     if (result === "error") showManualUpdateStatus("error");
   };
+
+  const toggleAutoStart = async () => {
+    if (autoStartStatus === "loading" || autoStartStatus === "saving") return;
+    const nextEnabled = !autoStartEnabled;
+    setAutoStartStatus("saving");
+    try {
+      await setAutoStartEnabled(nextEnabled);
+      setAutoStartEnabledState(await getAutoStartEnabled());
+      setAutoStartStatus("ready");
+    } catch {
+      setAutoStartStatus("error");
+    }
+  };
+
+  const autoStartTitle = t(
+    autoStartStatus === "loading"
+      ? "autoStartLoading"
+      : autoStartStatus === "saving"
+        ? "autoStartSaving"
+        : autoStartStatus === "error"
+          ? "autoStartError"
+          : autoStartEnabled
+            ? "autoStartEnabled"
+            : "autoStartDisabled",
+  );
 
   const timeText = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
   const secondsText = pad(now.getSeconds());
@@ -956,7 +1006,29 @@ export default function App() {
           {running ? t("stayFocused") : t("ready")}
           <b className="footer-version">v{CURRENT_VERSION}</b>
         </span>
-        <span><Settings2 size={12} /> {t("trayBackground")}</span>
+        <button
+          className={`auto-start-toggle ${autoStartEnabled ? "enabled" : ""} ${
+            autoStartStatus === "error" ? "error" : ""
+          }`}
+          type="button"
+          role="switch"
+          aria-checked={autoStartEnabled}
+          aria-busy={autoStartStatus === "loading" || autoStartStatus === "saving"}
+          aria-label={autoStartTitle}
+          title={autoStartTitle}
+          disabled={
+            !supportsAutoStart() ||
+            autoStartStatus === "loading" ||
+            autoStartStatus === "saving"
+          }
+          onClick={() => void toggleAutoStart()}
+        >
+          <Settings2 size={12} />
+          <span>{t("autoStart")}</span>
+          <span className="auto-start-switch" aria-hidden="true">
+            <span />
+          </span>
+        </button>
       </footer>
     </main>
   );
