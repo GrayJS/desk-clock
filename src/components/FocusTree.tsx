@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import * as THREE from "three";
-import type { Translate } from "../i18n";
+import type { MessageKey, Translate } from "../i18n";
 
 type FocusTreeProps = {
   tomatoCount: number;
@@ -14,6 +14,77 @@ type FocusTreeProps = {
 type TomatoGroup = THREE.Group & { userData: { bornAt?: number } };
 
 const MAX_VISIBLE_TOMATOES = 50;
+
+type TreeStage = {
+  minCount: number;
+  labelKey: MessageKey;
+  widthScale: number;
+  heightScale: number;
+  branchCount: number;
+  crownCount: number;
+  foliageScale: number;
+  horizontalOffset: number;
+};
+
+const TREE_STAGES: TreeStage[] = [
+  {
+    minCount: 0,
+    labelKey: "treeStageSeedling",
+    widthScale: 0.48,
+    heightScale: 0.58,
+    branchCount: 0,
+    crownCount: 2,
+    foliageScale: 0.82,
+    horizontalOffset: 0,
+  },
+  {
+    minCount: 2,
+    labelKey: "treeStageSapling",
+    widthScale: 0.64,
+    heightScale: 0.7,
+    branchCount: 2,
+    crownCount: 4,
+    foliageScale: 0.88,
+    horizontalOffset: 0.04,
+  },
+  {
+    minCount: 5,
+    labelKey: "treeStageGrowing",
+    widthScale: 0.8,
+    heightScale: 0.84,
+    branchCount: 4,
+    crownCount: 7,
+    foliageScale: 0.94,
+    horizontalOffset: 0.08,
+  },
+  {
+    minCount: 10,
+    labelKey: "treeStageFlourishing",
+    widthScale: 0.96,
+    heightScale: 0.96,
+    branchCount: 6,
+    crownCount: 10,
+    foliageScale: 1,
+    horizontalOffset: 0.2,
+  },
+  {
+    minCount: 18,
+    labelKey: "treeStageHarvest",
+    widthScale: 1.08,
+    heightScale: 1.03,
+    branchCount: 8,
+    crownCount: 13,
+    foliageScale: 1.06,
+    horizontalOffset: 0.4,
+  },
+];
+
+function getTreeStage(count: number) {
+  for (let index = TREE_STAGES.length - 1; index >= 0; index -= 1) {
+    if (count >= TREE_STAGES[index].minCount) return TREE_STAGES[index];
+  }
+  return TREE_STAGES[0];
+}
 
 function tomatoPosition(index: number) {
   const angle = index * 2.399963;
@@ -43,6 +114,7 @@ export default function FocusTree({
   const sceneHostRef = useRef<HTMLDivElement>(null);
   const latestCountRef = useRef(tomatoCount);
   const syncTomatoesRef = useRef<((count: number) => void) | null>(null);
+  const syncTreeStageRef = useRef<((count: number) => void) | null>(null);
   const liveGrowthRef = useRef({
     count: tomatoCount,
     progress: growthProgress,
@@ -60,6 +132,7 @@ export default function FocusTree({
     0,
     Math.ceil(remainingFocusMinutes),
   );
+  const currentStage = getTreeStage(tomatoCount);
 
   useEffect(() => {
     const host = sceneHostRef.current;
@@ -86,6 +159,9 @@ export default function FocusTree({
     const tree = new THREE.Group();
     tree.position.y = -0.14;
     scene.add(tree);
+
+    const treeForm = new THREE.Group();
+    tree.add(treeForm);
 
     const trunkMaterial = new THREE.MeshStandardMaterial({
       color: 0x765038,
@@ -124,7 +200,7 @@ export default function FocusTree({
       );
       branch.castShadow = true;
       branch.receiveShadow = true;
-      tree.add(branch);
+      treeForm.add(branch);
       return branch;
     };
 
@@ -149,20 +225,35 @@ export default function FocusTree({
       trunkLightMaterial,
     );
 
+    const evolutionBranches: Array<{
+      mesh: THREE.Mesh;
+      reveal: number;
+      targetReveal: number;
+    }> = [];
     [
-      [new THREE.Vector3(-0.08, 0.05, 0), new THREE.Vector3(-1.06, 1.04, 0.02), 0.16, 0.055],
-      [new THREE.Vector3(-0.1, 0.3, 0), new THREE.Vector3(0.95, 1.18, -0.02), 0.15, 0.052],
-      [new THREE.Vector3(-0.08, 0.7, -0.02), new THREE.Vector3(-0.55, 1.72, -0.06), 0.12, 0.042],
-      [new THREE.Vector3(-0.02, 0.8, -0.03), new THREE.Vector3(0.52, 1.82, -0.08), 0.11, 0.04],
-    ].forEach(([from, to, bottomRadius, topRadius], index) =>
-      addBranch(
-        from as THREE.Vector3,
-        to as THREE.Vector3,
-        bottomRadius as number,
-        topRadius as number,
+      { from: [-0.08, 0.05, 0], to: [-1.06, 1.04, 0.02], bottom: 0.16, top: 0.055 },
+      { from: [-0.1, 0.3, 0], to: [0.95, 1.18, -0.02], bottom: 0.15, top: 0.052 },
+      { from: [-0.08, 0.7, -0.02], to: [-0.55, 1.72, -0.06], bottom: 0.12, top: 0.042 },
+      { from: [-0.02, 0.8, -0.03], to: [0.52, 1.82, -0.08], bottom: 0.11, top: 0.04 },
+      { from: [-0.1, 0.52, -0.04], to: [-1.32, 1.54, -0.12], bottom: 0.105, top: 0.034 },
+      { from: [-0.03, 0.58, -0.06], to: [1.34, 1.6, -0.16], bottom: 0.1, top: 0.032 },
+      { from: [-0.06, 1.02, -0.08], to: [-0.91, 2.2, -0.2], bottom: 0.082, top: 0.026 },
+      { from: [0, 1.08, -0.09], to: [0.9, 2.26, -0.22], bottom: 0.078, top: 0.024 },
+    ].forEach(({ from, to, bottom, top }, index) => {
+      const branch = addBranch(
+        new THREE.Vector3(from[0], from[1], from[2]),
+        new THREE.Vector3(to[0], to[1], to[2]),
+        bottom,
+        top,
         index % 2 === 0 ? trunkLightMaterial : trunkMaterial,
-      ),
-    );
+      );
+      branch.scale.setScalar(0.001);
+      evolutionBranches.push({
+        mesh: branch,
+        reveal: 0.001,
+        targetReveal: 0,
+      });
+    });
 
     [
       [new THREE.Vector3(0, -1.43, 0), new THREE.Vector3(-0.84, -1.55, 0.28)],
@@ -189,16 +280,26 @@ export default function FocusTree({
       flatShading: true,
     });
     const crownGeometry = new THREE.IcosahedronGeometry(0.82, 1);
+    const crownParts: Array<{
+      mesh: THREE.Mesh;
+      baseScale: THREE.Vector3;
+      reveal: number;
+      targetReveal: number;
+    }> = [];
     [
-      { p: [-0.08, 1.36, -0.12] as const, s: [1.15, 1.04, 1] as const, tone: 0 },
-      { p: [-0.94, 1.16, -0.04] as const, s: [0.82, 0.78, 0.82] as const, tone: 1 },
-      { p: [0.9, 1.25, -0.05] as const, s: [0.87, 0.82, 0.84] as const, tone: 0 },
-      { p: [-1.23, 1.7, -0.16] as const, s: [0.61, 0.67, 0.64] as const, tone: 0 },
-      { p: [1.2, 1.75, -0.18] as const, s: [0.62, 0.69, 0.66] as const, tone: 1 },
-      { p: [-0.56, 2.02, -0.17] as const, s: [0.76, 0.76, 0.73] as const, tone: 2 },
-      { p: [0.5, 2.08, -0.19] as const, s: [0.73, 0.72, 0.71] as const, tone: 0 },
-      { p: [-0.03, 2.4, -0.23] as const, s: [0.53, 0.52, 0.5] as const, tone: 2 },
-      { p: [0.28, 0.85, -0.04] as const, s: [0.72, 0.6, 0.7] as const, tone: 1 },
+      { p: [-0.08, 1.3, -0.12] as const, s: [1.05, 0.94, 0.95] as const, tone: 0 },
+      { p: [0.02, 1.9, -0.18] as const, s: [0.72, 0.72, 0.68] as const, tone: 2 },
+      { p: [-0.75, 1.28, -0.05] as const, s: [0.78, 0.72, 0.78] as const, tone: 1 },
+      { p: [0.72, 1.32, -0.06] as const, s: [0.8, 0.74, 0.78] as const, tone: 0 },
+      { p: [-0.03, 2.36, -0.24] as const, s: [0.55, 0.55, 0.52] as const, tone: 2 },
+      { p: [-0.58, 1.92, -0.16] as const, s: [0.7, 0.68, 0.68] as const, tone: 2 },
+      { p: [0.56, 1.96, -0.18] as const, s: [0.68, 0.67, 0.66] as const, tone: 0 },
+      { p: [-1.18, 1.58, -0.14] as const, s: [0.62, 0.66, 0.64] as const, tone: 0 },
+      { p: [1.15, 1.62, -0.16] as const, s: [0.63, 0.67, 0.65] as const, tone: 1 },
+      { p: [0.2, 0.88, -0.03] as const, s: [0.7, 0.58, 0.68] as const, tone: 1 },
+      { p: [-1.34, 2.02, -0.22] as const, s: [0.52, 0.58, 0.56] as const, tone: 2 },
+      { p: [1.33, 2.06, -0.23] as const, s: [0.53, 0.59, 0.57] as const, tone: 0 },
+      { p: [0.48, 2.42, -0.28] as const, s: [0.48, 0.5, 0.47] as const, tone: 2 },
     ].forEach(({ p, s, tone }, index) => {
       const crown = new THREE.Mesh(
         crownGeometry,
@@ -209,7 +310,8 @@ export default function FocusTree({
             : leafMaterial,
       );
       crown.position.set(p[0], p[1], p[2]);
-      crown.scale.set(s[0], s[1], s[2]);
+      const baseScale = new THREE.Vector3(s[0], s[1], s[2]);
+      crown.scale.copy(baseScale).multiplyScalar(0.001);
       crown.rotation.set(
         p[0] * 0.14,
         index * 0.48 + p[1] * 0.08,
@@ -217,7 +319,13 @@ export default function FocusTree({
       );
       crown.castShadow = true;
       crown.receiveShadow = true;
-      tree.add(crown);
+      treeForm.add(crown);
+      crownParts.push({
+        mesh: crown,
+        baseScale,
+        reveal: 0.001,
+        targetReveal: 0,
+      });
     });
 
     const tomatoRadius = 0.19;
@@ -281,7 +389,7 @@ export default function FocusTree({
     });
     const tomatoes = new THREE.Group();
     tomatoes.name = "daily-tomatoes";
-    tree.add(tomatoes);
+    treeForm.add(tomatoes);
 
     const buildTomato = (
       index: number,
@@ -320,7 +428,7 @@ export default function FocusTree({
     let growingTomatoIndex = -1;
     let growingTomatoBaseY = 0;
     growingTomato.visible = false;
-    tree.add(growingTomato);
+    treeForm.add(growingTomato);
 
     const syncTomatoes = (count: number) => {
       const visibleCount = Math.min(count, MAX_VISIBLE_TOMATOES);
@@ -331,7 +439,34 @@ export default function FocusTree({
         tomatoes.remove(tomatoes.children[tomatoes.children.length - 1]);
       }
     };
+    const initialStage = getTreeStage(latestCountRef.current);
+    const targetFormScale = new THREE.Vector3(
+      initialStage.widthScale,
+      initialStage.heightScale,
+      initialStage.widthScale,
+    );
+    let targetFormOffsetX = initialStage.horizontalOffset;
+    treeForm.scale.copy(targetFormScale);
+    treeForm.position.x = targetFormOffsetX;
+    const syncTreeStage = (count: number) => {
+      const stage = getTreeStage(count);
+      targetFormScale.set(
+        stage.widthScale,
+        stage.heightScale,
+        stage.widthScale,
+      );
+      targetFormOffsetX = stage.horizontalOffset;
+      evolutionBranches.forEach((branch, index) => {
+        branch.targetReveal = index < stage.branchCount ? 1 : 0;
+      });
+      crownParts.forEach((crown, index) => {
+        crown.targetReveal =
+          index < stage.crownCount ? stage.foliageScale : 0;
+      });
+    };
     syncTomatoesRef.current = syncTomatoes;
+    syncTreeStageRef.current = syncTreeStage;
+    syncTreeStage(latestCountRef.current);
     syncTomatoes(latestCountRef.current);
 
     const ground = new THREE.Mesh(
@@ -394,10 +529,34 @@ export default function FocusTree({
         0.075,
       );
       tree.scale.setScalar(responsiveScale);
+      treeForm.scale.lerp(targetFormScale, 0.055);
+      treeForm.position.x = THREE.MathUtils.lerp(
+        treeForm.position.x,
+        targetFormOffsetX,
+        0.055,
+      );
+      evolutionBranches.forEach((branch) => {
+        branch.reveal = THREE.MathUtils.lerp(
+          branch.reveal,
+          branch.targetReveal,
+          0.065,
+        );
+        branch.mesh.scale.setScalar(Math.max(0.001, branch.reveal));
+      });
+      crownParts.forEach((crown) => {
+        crown.reveal = THREE.MathUtils.lerp(
+          crown.reveal,
+          crown.targetReveal,
+          0.06,
+        );
+        crown.mesh.scale
+          .copy(crown.baseScale)
+          .multiplyScalar(Math.max(0.001, crown.reveal));
+      });
       tree.rotation.y += (pointer.x * 0.24 - tree.rotation.y) * 0.035;
       tree.rotation.x += (-pointer.y * 0.045 - tree.rotation.x) * 0.035;
       tree.position.y =
-        responsiveScale * 1.52 -
+        responsiveScale * treeForm.scale.y * 1.52 -
         1.66 +
         Math.sin(elapsed * 1.15) * 0.025;
       tree.rotation.z = Math.sin(elapsed * 0.72) * 0.012;
@@ -458,6 +617,7 @@ export default function FocusTree({
       host.removeEventListener("pointermove", onPointerMove);
       host.removeEventListener("pointerleave", onPointerLeave);
       syncTomatoesRef.current = null;
+      syncTreeStageRef.current = null;
       const geometries = new Set<THREE.BufferGeometry>();
       const materials = new Set<THREE.Material>();
       scene.traverse((object) => {
@@ -478,6 +638,7 @@ export default function FocusTree({
 
   useEffect(() => {
     syncTomatoesRef.current?.(tomatoCount);
+    syncTreeStageRef.current?.(tomatoCount);
   }, [tomatoCount]);
 
   return (
@@ -486,7 +647,9 @@ export default function FocusTree({
         <div className="tree-scene" ref={sceneHostRef} />
         <div className="tree-heading">
           <div>
-            <span>{t("treeEyebrow")}</span>
+            <span>
+              {t("treeEyebrow")} · {t(currentStage.labelKey)}
+            </span>
             <strong>{t("treeTitle")}</strong>
           </div>
           <small>{dateText}</small>

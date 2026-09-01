@@ -5,9 +5,8 @@ import {
   Clock3,
   DownloadCloud,
   History,
-  Languages,
-  Monitor,
   Maximize2,
+  Minimize2,
   Minus,
   Pause,
   Pin,
@@ -19,8 +18,6 @@ import {
   Sparkles,
   Sprout,
   Square,
-  Sun,
-  Moon,
   Timer,
   TimerReset,
   Trash2,
@@ -37,6 +34,7 @@ import {
 } from "react";
 import { useClock } from "./hooks/useClock";
 import { usePersistentState } from "./hooks/usePersistentState";
+import SettingsPanel from "./components/SettingsPanel";
 import {
   createTranslator,
   getSystemLocale,
@@ -67,7 +65,14 @@ import {
   setWindowSize,
   startWindowDragging,
 } from "./lib/window";
-import type { SessionRecord, SizePreset, TimerMode } from "./types";
+import type {
+  AutoStartStatus,
+  ManualUpdateStatus,
+  SessionRecord,
+  SizePreset,
+  ThemePreference,
+  TimerMode,
+} from "./types";
 
 const FocusTree = lazy(() => import("./components/FocusTree"));
 
@@ -95,25 +100,7 @@ const defaultDurations: Record<TimerMode, number> = {
   long: 15,
 };
 
-const durationPresets: Record<TimerMode, number[]> = {
-  focus: [15, 25, 45, 60],
-  short: [5, 10, 15],
-  long: [15, 20, 30],
-};
-
-type ThemePreference = "system" | "light" | "dark";
-type ManualUpdateStatus = "idle" | "checking" | "current" | "error";
-type AutoStartStatus = "loading" | "ready" | "saving" | "error";
-
-const themeOptions: Array<{
-  value: ThemePreference;
-  labelKey: MessageKey;
-  icon: typeof Monitor;
-}> = [
-  { value: "system", labelKey: "themeSystem", icon: Monitor },
-  { value: "light", labelKey: "themeLight", icon: Sun },
-  { value: "dark", labelKey: "themeDark", icon: Moon },
-];
+const sizePresetOrder: SizePreset[] = ["compact", "standard", "expanded"];
 
 const sizeLabelKeys: Record<SizePreset, MessageKey> = {
   compact: "sizeCompact",
@@ -121,10 +108,11 @@ const sizeLabelKeys: Record<SizePreset, MessageKey> = {
   expanded: "sizeExpanded",
 };
 
-const localeOptions: Array<{ value: Locale; labelKey: MessageKey }> = [
-  { value: "zh-CN", labelKey: "chinese" },
-  { value: "en-US", labelKey: "english" },
-];
+const durationPresets: Record<TimerMode, number[]> = {
+  focus: [15, 25, 45, 60],
+  short: [5, 10, 15],
+  long: [15, 20, 30],
+};
 
 function pad(value: number) {
   return value.toString().padStart(2, "0");
@@ -186,12 +174,10 @@ export default function App() {
   const [alwaysOnTop, setPinned] = usePersistentState("morrow.pinned", true);
   const [sizePreset, setSizePreset] =
     usePersistentState<SizePreset>("morrow.size", "standard");
-  const [sizeMenuOpen, setSizeMenuOpen] = useState(false);
   const [locale, setLocale] = usePersistentState<Locale>(
     "morrow.locale",
     getSystemLocale(),
   );
-  const [languageMenuOpen, setLanguageMenuOpen] = useState(false);
   const [themePreference, setThemePreference] = usePersistentState<ThemePreference>(
     "morrow.theme",
     "system",
@@ -199,7 +185,7 @@ export default function App() {
   const [systemTheme, setSystemTheme] = useState<"dark" | "light">(() =>
     window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light",
   );
-  const [themeMenuOpen, setThemeMenuOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [durationMenuOpen, setDurationMenuOpen] = useState(false);
   const [customMinutes, setCustomMinutes] = useState(defaultDurations.focus);
   const [availableUpdate, setAvailableUpdate] =
@@ -207,14 +193,13 @@ export default function App() {
   const [updateDismissed, setUpdateDismissed] = useState(false);
   const [manualUpdateStatus, setManualUpdateStatus] =
     useState<ManualUpdateStatus>("idle");
+  const [updateInstalling, setUpdateInstalling] = useState(false);
   const [autoStartEnabled, setAutoStartEnabledState] = useState(false);
   const [autoStartStatus, setAutoStartStatus] =
     useState<AutoStartStatus>("loading");
   const completingRef = useRef(false);
   const lastUpdateCheckRef = useRef(0);
   const updateDismissedUntilRef = useRef(0);
-  const timerBusyRef = useRef(false);
-  const previousTimerBusyRef = useRef(false);
   const updateInstallRef = useRef(false);
   const manualUpdateTimerRef = useRef<number | null>(null);
   const t = useMemo(() => createTranslator(locale), [locale]);
@@ -239,10 +224,6 @@ export default function App() {
   const remainingFocusMinutes = mode === "focus" ? remaining / 60 : currentMinutes;
   const isTomatoGrowing = mode === "focus" && remaining < totalSeconds;
   const timerBusy = remaining < totalSeconds;
-
-  useEffect(() => {
-    timerBusyRef.current = timerBusy;
-  }, [timerBusy]);
 
   const finishSession = useCallback(() => {
     if (completingRef.current) return;
@@ -332,6 +313,7 @@ export default function App() {
       if (updateInstallRef.current) return false;
 
       updateInstallRef.current = true;
+      setUpdateInstalling(true);
       try {
         await update.installSilently();
         return true;
@@ -340,6 +322,7 @@ export default function App() {
         return false;
       } finally {
         updateInstallRef.current = false;
+        setUpdateInstalling(false);
       }
     },
     [],
@@ -355,11 +338,6 @@ export default function App() {
           return "current" as const;
         }
 
-        if (update.installSilently && !timerBusyRef.current) {
-          const started = await installUpdate(update);
-          if (started) return "installing" as const;
-        }
-
         setAvailableUpdate(update);
         if (Date.now() >= updateDismissedUntilRef.current) {
           setUpdateDismissed(false);
@@ -373,18 +351,8 @@ export default function App() {
         return "error" as const;
       }
     },
-    [installUpdate],
+    [],
   );
-
-  useEffect(() => {
-    const becameIdle = previousTimerBusyRef.current && !timerBusy;
-    previousTimerBusyRef.current = timerBusy;
-    if (!becameIdle || !availableUpdate?.installSilently) return;
-
-    void installUpdate(availableUpdate).then((started) => {
-      if (!started) showManualUpdateStatus("error");
-    });
-  }, [availableUpdate, installUpdate, timerBusy]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -459,9 +427,7 @@ export default function App() {
   const openDurationMenu = () => {
     setCustomMinutes(currentMinutes);
     setDurationMenuOpen((value) => !value);
-    setThemeMenuOpen(false);
-    setSizeMenuOpen(false);
-    setLanguageMenuOpen(false);
+    setSettingsOpen(false);
   };
 
   const applyDuration = (minutes: number) => {
@@ -476,18 +442,22 @@ export default function App() {
 
   const applySize = async (preset: SizePreset) => {
     setSizePreset(preset);
-    setSizeMenuOpen(false);
     await setWindowSize(preset);
   };
 
+  const nextSizePreset =
+    sizePresetOrder[
+      (sizePresetOrder.indexOf(sizePreset) + 1) % sizePresetOrder.length
+    ];
+
+  const cycleWindowSize = () => void applySize(nextSizePreset);
+
   const selectTheme = (preference: ThemePreference) => {
     setThemePreference(preference);
-    setThemeMenuOpen(false);
   };
 
   const selectLocale = (nextLocale: Locale) => {
     setLocale(nextLocale);
-    setLanguageMenuOpen(false);
   };
 
   const dismissUpdate = () => {
@@ -514,7 +484,7 @@ export default function App() {
     updateDismissedUntilRef.current = 0;
     setUpdateDismissed(false);
     const result = await runUpdateCheck();
-    if (result === "available" || result === "installing") {
+    if (result === "available") {
       showManualUpdateStatus("idle");
       return;
     }
@@ -558,9 +528,16 @@ export default function App() {
     day: "numeric",
     weekday: "long",
   }).format(now);
-  const ThemeButtonIcon =
-    themePreference === "system" ? Monitor : theme === "dark" ? Moon : Sun;
-
+  const SizeButtonIcon =
+    sizePreset === "compact"
+      ? Minimize2
+      : sizePreset === "expanded"
+        ? Maximize2
+        : Square;
+  const quickResizeTitle = t("quickResizeTitle", {
+    current: t(sizeLabelKeys[sizePreset]),
+    next: t(sizeLabelKeys[nextSizePreset]),
+  });
   return (
     <main
       className={`app-shell size-${sizePreset} ${running ? "is-running" : ""}`}
@@ -585,90 +562,27 @@ export default function App() {
           <span>Morrow</span>
         </div>
         <div className="window-actions">
-          <div className="language-menu-wrap">
-            <button
-              className={`icon-button language-button ${languageMenuOpen ? "menu-active" : ""}`}
-              aria-label={t("selectLanguage")}
-              title={locale === "zh-CN" ? t("chinese") : t("english")}
-              onClick={() => {
-                setLanguageMenuOpen((value) => !value);
-                setThemeMenuOpen(false);
-                setSizeMenuOpen(false);
-                setDurationMenuOpen(false);
-              }}
-            >
-              <Languages size={14} />
-            </button>
-            {languageMenuOpen && (
-              <div className="language-menu floating-menu">
-                <span className="menu-label">{t("language")}</span>
-                {localeOptions.map((option) => (
-                  <button
-                    key={option.value}
-                    onClick={() => selectLocale(option.value)}
-                  >
-                    <span>{t(option.labelKey)}</span>
-                    {locale === option.value && <Check size={13} />}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-          <div className="theme-menu-wrap">
-            <button
-              className={`icon-button theme-button ${themeMenuOpen ? "menu-active" : ""}`}
-              aria-label={t("selectTheme")}
-              title={
-                themePreference === "system"
-                  ? t("themeCurrentSystem", {
-                      theme: t(theme === "dark" ? "themeDark" : "themeLight"),
-                    })
-                  : t("themeCurrent", {
-                      theme: t(theme === "dark" ? "themeDark" : "themeLight"),
-                    })
-              }
-              onClick={() => {
-                setThemeMenuOpen((value) => !value);
-                setSizeMenuOpen(false);
-                setDurationMenuOpen(false);
-                setLanguageMenuOpen(false);
-              }}
-            >
-              <ThemeButtonIcon size={14} />
-            </button>
-            {themeMenuOpen && (
-              <div className="theme-menu floating-menu">
-                <span className="menu-label">{t("themeTitle")}</span>
-                {themeOptions.map((option) => {
-                  const OptionIcon = option.icon;
-                  return (
-                    <button key={option.value} onClick={() => selectTheme(option.value)}>
-                      <span><OptionIcon size={13} /> {t(option.labelKey)}</span>
-                      {themePreference === option.value && <Check size={13} />}
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-          </div>
           <button
-            className={`icon-button update-check-button ${
-              manualUpdateStatus === "checking" ? "checking" : ""
+            className={`icon-button settings-button ${
+              settingsOpen ? "menu-active" : ""
             } ${availableUpdate ? "has-update" : ""}`}
-            aria-label={
-              manualUpdateStatus === "checking"
-                ? t("checkingForUpdates")
-                : t("manualCheckUpdate")
-            }
-            title={
-              manualUpdateStatus === "checking"
-                ? t("checkingForUpdates")
-                : t("manualCheckUpdate")
-            }
-            disabled={manualUpdateStatus === "checking"}
-            onClick={() => void manuallyCheckForUpdates()}
+            aria-label={t("settingsTitle")}
+            aria-expanded={settingsOpen}
+            title={t("settingsTitle")}
+            onClick={() => {
+              setSettingsOpen((value) => !value);
+              setDurationMenuOpen(false);
+            }}
           >
-            <RefreshCw size={14} />
+            <Settings2 size={14} />
+          </button>
+          <button
+            className="icon-button quick-size-button"
+            aria-label={quickResizeTitle}
+            title={quickResizeTitle}
+            onClick={cycleWindowSize}
+          >
+            <SizeButtonIcon size={14} />
           </button>
           <button
             className={`icon-button pin-button ${alwaysOnTop ? "active" : ""}`}
@@ -678,32 +592,6 @@ export default function App() {
           >
             <Pin size={14} fill={alwaysOnTop ? "currentColor" : "none"} />
           </button>
-          <div className="size-menu-wrap">
-            <button
-              className="icon-button size-button"
-              aria-label={t("resizeWindow")}
-              title={t("windowSize")}
-              onClick={() => {
-                setSizeMenuOpen((value) => !value);
-                setThemeMenuOpen(false);
-                setDurationMenuOpen(false);
-                setLanguageMenuOpen(false);
-              }}
-            >
-              <Maximize2 size={14} />
-              <ChevronDown size={10} />
-            </button>
-            {sizeMenuOpen && (
-              <div className="size-menu">
-                {(Object.keys(sizeLabelKeys) as SizePreset[]).map((preset) => (
-                  <button key={preset} onClick={() => void applySize(preset)}>
-                    <span>{t(sizeLabelKeys[preset])}</span>
-                    {sizePreset === preset && <Check size={13} />}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
           <button className="icon-button" aria-label={t("minimizeToTray")} title={t("minimizeToTray")} onClick={() => void minimizeWindow()}>
             <Minus size={14} />
           </button>
@@ -723,6 +611,53 @@ export default function App() {
         <div className="today-stat">
           <span>{t("todayFocus")}</span>
           <strong>{todayMinutes}<small> {t("minute")}</small></strong>
+        </div>
+      </section>
+
+      <section className="compact-timer" aria-label={t("compactTimer")}>
+        <div className="compact-timer-main">
+          <div className="compact-countdown">
+            <span>
+              {running ? t(runningLabelKeys[mode]) : t(modeLabelKeys[mode])}
+            </span>
+            <strong>{formatTimer(remaining)}</strong>
+          </div>
+          <div className="compact-timer-controls">
+            <button
+              className="compact-reset"
+              aria-label={t("resetTimer")}
+              title={t("resetTimer")}
+              onClick={resetTimer}
+            >
+              <RotateCcw size={15} />
+            </button>
+            <button
+              className="compact-toggle"
+              aria-label={running ? t("pause") : t(startLabelKeys[mode])}
+              title={running ? t("pause") : t(startLabelKeys[mode])}
+              onClick={toggleTimer}
+            >
+              {running ? (
+                <Pause size={17} fill="currentColor" />
+              ) : (
+                <Play size={17} fill="currentColor" />
+              )}
+            </button>
+          </div>
+        </div>
+        <div className="compact-progress" aria-hidden="true">
+          <span style={{ width: `${progress * 100}%` }} />
+        </div>
+        <div className="compact-mode-switcher">
+          {(Object.keys(modeLabelKeys) as TimerMode[]).map((item) => (
+            <button
+              key={item}
+              className={mode === item ? "active" : ""}
+              onClick={() => switchMode(item)}
+            >
+              {t(modeLabelKeys[item])}
+            </button>
+          ))}
         </div>
       </section>
 
@@ -943,18 +878,55 @@ export default function App() {
         )}
       </div>
 
+      {settingsOpen && (
+        <SettingsPanel
+          t={t}
+          locale={locale}
+          themePreference={themePreference}
+          sizePreset={sizePreset}
+          alwaysOnTop={alwaysOnTop}
+          autoStartEnabled={autoStartEnabled}
+          autoStartStatus={autoStartStatus}
+          autoStartSupported={supportsAutoStart()}
+          autoStartTitle={autoStartTitle}
+          manualUpdateStatus={manualUpdateStatus}
+          updateInstalling={updateInstalling}
+          availableUpdateVersion={availableUpdate?.version ?? null}
+          currentVersion={CURRENT_VERSION}
+          onClose={() => setSettingsOpen(false)}
+          onLocaleChange={selectLocale}
+          onThemeChange={selectTheme}
+          onSizeChange={(preset) => void applySize(preset)}
+          onAlwaysOnTopChange={setPinned}
+          onToggleAutoStart={() => void toggleAutoStart()}
+          onCheckForUpdates={() => void manuallyCheckForUpdates()}
+          onInstallUpdate={() => {
+            if (availableUpdate) void installUpdate(availableUpdate, true);
+          }}
+        />
+      )}
+
       {availableUpdate && !updateDismissed && (
-        <aside className="update-toast" role="status" aria-live="polite">
+        <aside
+          className="update-toast"
+          role="dialog"
+          aria-labelledby="update-title"
+          aria-describedby="update-description"
+        >
           <span className="update-icon"><DownloadCloud size={17} /></span>
           <div className="update-copy">
-            <strong>{t("updateAvailable", { version: availableUpdate.version })}</strong>
-            <span>{t("updateDescription")}</span>
+            <strong id="update-title">
+              {t("updateAvailable", { version: availableUpdate.version })}
+            </strong>
+            <span id="update-description">{t("updateDescription")}</span>
           </div>
           <button
-            className="update-action"
+            className={`update-action ${updateInstalling ? "installing" : ""}`}
+            disabled={updateInstalling}
             onClick={() => void installUpdate(availableUpdate, true)}
           >
-            {t("viewUpdate")} <ArrowUpRight size={12} />
+            {updateInstalling ? t("installingUpdate") : t("viewUpdate")}
+            {updateInstalling ? <RefreshCw size={12} /> : <ArrowUpRight size={12} />}
           </button>
           <button
             className="update-dismiss"
@@ -1006,29 +978,6 @@ export default function App() {
           {running ? t("stayFocused") : t("ready")}
           <b className="footer-version">v{CURRENT_VERSION}</b>
         </span>
-        <button
-          className={`auto-start-toggle ${autoStartEnabled ? "enabled" : ""} ${
-            autoStartStatus === "error" ? "error" : ""
-          }`}
-          type="button"
-          role="switch"
-          aria-checked={autoStartEnabled}
-          aria-busy={autoStartStatus === "loading" || autoStartStatus === "saving"}
-          aria-label={autoStartTitle}
-          title={autoStartTitle}
-          disabled={
-            !supportsAutoStart() ||
-            autoStartStatus === "loading" ||
-            autoStartStatus === "saving"
-          }
-          onClick={() => void toggleAutoStart()}
-        >
-          <Settings2 size={12} />
-          <span>{t("autoStart")}</span>
-          <span className="auto-start-switch" aria-hidden="true">
-            <span />
-          </span>
-        </button>
       </footer>
     </main>
   );

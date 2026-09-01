@@ -10,3 +10,9 @@ export type SessionRecord = {
 };
 
 export type SizePreset = "compact" | "standard" | "expanded";
+
+export type ThemePreference = "system" | "light" | "dark";
+
+export type ManualUpdateStatus = "idle" | "checking" | "current" | "error";
+
+export type AutoStartStatus = "loading" | "ready" | "saving" | "error";
