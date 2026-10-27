@@ -27,13 +27,13 @@ Windows 10/11 x64 and Microsoft Edge WebView2 are required. WebView2 is normally
 - Dark, light, and Windows system theme modes
 - Instant Simplified Chinese and English switching
 - Unified settings panel for appearance, window, startup, and update options
-- Focus, short-break, and long-break timer modes
+- Focus and rest timer modes; completed focus sessions stay in focus mode, ready for the next manual start
 - Quick duration presets and custom 1–180 minute countdowns
-- Current goal, quick notes, and completed focus-session history
+- Current goal, quick notes, and completed focus-session history with confirmation before clearing records
 - System tray background mode with restore and quit actions
 - Optional start at login, synchronized with the actual Windows startup entry
 - Native background timing with optional Windows notifications when a session ends
-- Frameless transparent window, responsive layout, and Windows 11-inspired motion
+- iOS-inspired frosted glass, dimensional clock digits, highlighted buttons, and press feedback with native Windows Mica and an Acrylic fallback
 
 ## Settings
 
@@ -42,7 +42,7 @@ take effect immediately:
 
 - **Appearance**: system, light, or dark theme and Simplified Chinese or English
 - **Window**: compact, standard, or expanded size and always-on-top behavior
-- **Windows tray**: configure separate tray-icon click and double-click actions for start/pause, reset, next mode, always on top, settings, or no action; upload a custom tray icon when preferred
+- **Windows tray**: configure separate tray-icon click and double-click actions for show main window, start/pause, reset, next mode, always on top, settings, or no action; single-click defaults to showing the main window, and custom tray icons are supported
 - **System**: start at login, Windows timer notifications, and signed update checks
 
 Always on top and window-size switching remain available as title-bar shortcuts;
@@ -53,7 +53,7 @@ a regular browser-only frontend preview.
 | Preset | Window size | Best for |
 | --- | ---: | --- |
 | Compact | 360×210 | Keeping the clock visible while controlling the timer |
-| Standard | 420×560 | Everyday timing, goals, and focus history |
+| Standard | 420×600 | Everyday timing, goals, and focus history |
 | Expanded | 720×520 | Side-by-side timer content or the full achievement tree |
 
 The selected preset is stored locally and restored on the next launch. The

@@ -52,6 +52,7 @@ const trayActionOptions: Array<{
   value: TrayAction;
   labelKey: MessageKey;
 }> = [
+  { value: "showWindow", labelKey: "quickActionShowWindow" },
   { value: "toggleTimer", labelKey: "quickActionToggleTimer" },
   { value: "resetTimer", labelKey: "quickActionResetTimer" },
   { value: "nextMode", labelKey: "quickActionNextMode" },

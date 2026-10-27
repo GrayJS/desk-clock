@@ -1,10 +1,11 @@
 import { LogicalSize } from "@tauri-apps/api/dpi";
+import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import type { SizePreset } from "../types";
 
 const sizes: Record<SizePreset, [number, number]> = {
   compact: [360, 210],
-  standard: [420, 560],
+  standard: [420, 600],
   expanded: [720, 520],
 };
 
@@ -14,6 +15,10 @@ function isTauri() {
 
 export async function setAlwaysOnTop(enabled: boolean) {
   if (isTauri()) await getCurrentWindow().setAlwaysOnTop(enabled);
+}
+
+export async function setWindowMaterial(theme: "dark" | "light") {
+  if (isTauri()) await invoke("set_window_material", { dark: theme === "dark" });
 }
 
 export async function setWindowSize(preset: SizePreset) {

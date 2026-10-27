@@ -1,4 +1,4 @@
-export type TimerMode = "focus" | "short" | "long";
+export type TimerMode = "focus" | "rest";
 
 export type SessionRecord = {
   id: string;
@@ -18,6 +18,7 @@ export type ManualUpdateStatus = "idle" | "checking" | "current" | "error";
 export type AutoStartStatus = "loading" | "ready" | "saving" | "error";
 
 export type TrayAction =
+  | "showWindow"
   | "toggleTimer"
   | "resetTimer"
   | "nextMode"

@@ -119,6 +119,21 @@ fn show_main_window_command(app: AppHandle) {
 }
 
 #[tauri::command]
+fn set_window_material(app: AppHandle, dark: bool) {
+    #[cfg(target_os = "windows")]
+    if let Some(window) = app.get_webview_window("main") {
+        if window_vibrancy::apply_mica(&window, Some(dark)).is_err() {
+            let tint = if dark {
+                (18, 22, 20, 180)
+            } else {
+                (242, 247, 239, 180)
+            };
+            let _ = window_vibrancy::apply_acrylic(&window, Some(tint));
+        }
+    }
+}
+
+#[tauri::command]
 fn set_tray_icon(
     state: State<'_, TrayState>,
     rgba: Vec<u8>,
@@ -192,12 +207,20 @@ pub fn run() {
             schedule_timer_notification,
             cancel_timer_notification,
             show_main_window_command,
+            set_window_material,
             set_tray_icon,
             reset_tray_icon,
             set_app_language,
             open_release_page
         ])
         .setup(|app| {
+            #[cfg(target_os = "windows")]
+            if let Some(window) = app.get_webview_window("main") {
+                if window_vibrancy::apply_mica(&window, None).is_err() {
+                    let _ = window_vibrancy::apply_acrylic(&window, Some((18, 22, 20, 180)));
+                }
+            }
+
             let show_item = MenuItem::with_id(app, "show", "显示主窗口", true, None::<&str>)?;
             let quit_item = MenuItem::with_id(app, "quit", "退出 Morrow", true, None::<&str>)?;
             let menu = Menu::with_items(app, &[&show_item, &quit_item])?;

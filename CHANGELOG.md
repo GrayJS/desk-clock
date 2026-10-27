@@ -3,6 +3,28 @@
 This file records user-visible changes that have not yet reached the latest
 stable release.
 
+## 0.6.10 (2026-10-28)
+
+### Changed
+
+- Added an accessible confirmation dialog before clearing focus history to
+  prevent accidental deletion. The dialog defaults to the safe cancel action,
+  supports Escape and backdrop dismissal, and clearly warns that deletion is
+  permanent.
+- Added native Windows Mica with an Acrylic fallback and refined translucent
+  surfaces throughout the interface for an iOS-inspired frosted-glass appearance,
+  including dimensional digits, button highlights, and press feedback.
+- Added a distinct configurable "show main window" tray action and made it the
+  default single-click behavior. Existing installations using the previous
+  timer-toggle default are migrated once, while "open settings" remains a
+  separate option.
+- Completed focus sessions now remain in focus mode and reset to the next focus
+  duration instead of automatically switching to a short break.
+- Merged short and long breaks into one configurable rest mode. Existing short
+  break durations are migrated automatically to the new rest duration.
+- Increased the standard window preset height from 560 to 600 pixels for more
+  comfortable spacing in the timer, history, and settings views.
+
 ## 0.6.9 (2026-09-01)
 
 ### Added

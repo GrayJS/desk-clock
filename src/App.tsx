@@ -1,4 +1,5 @@
 import {
+  AlertTriangle,
   ArrowUpRight,
   Check,
   ChevronDown,
@@ -69,6 +70,7 @@ import {
   closeWindow,
   minimizeWindow,
   setAlwaysOnTop,
+  setWindowMaterial,
   setWindowSize,
   startWindowDragging,
 } from "./lib/window";
@@ -88,31 +90,27 @@ const FocusTree = lazy(() => import("./components/FocusTree"));
 
 const modeLabelKeys: Record<TimerMode, MessageKey> = {
   focus: "modeFocus",
-  short: "modeShort",
-  long: "modeLong",
+  rest: "modeRest",
 };
 
 const runningLabelKeys: Record<TimerMode, MessageKey> = {
   focus: "runningFocus",
-  short: "runningShort",
-  long: "runningLong",
+  rest: "runningRest",
 };
 
 const startLabelKeys: Record<TimerMode, MessageKey> = {
   focus: "startFocus",
-  short: "startShort",
-  long: "startLong",
+  rest: "startRest",
 };
 
 const defaultDurations: Record<TimerMode, number> = {
   focus: 25,
-  short: 5,
-  long: 15,
+  rest: 5,
 };
 
 const sizePresetOrder: SizePreset[] = ["compact", "standard", "expanded"];
 
-const timerModeOrder: TimerMode[] = ["focus", "short", "long"];
+const timerModeOrder: TimerMode[] = ["focus", "rest"];
 
 const sizeLabelKeys: Record<SizePreset, MessageKey> = {
   compact: "sizeCompact",
@@ -122,8 +120,7 @@ const sizeLabelKeys: Record<SizePreset, MessageKey> = {
 
 const durationPresets: Record<TimerMode, number[]> = {
   focus: [15, 25, 45, 60],
-  short: [5, 10, 15],
-  long: [15, 20, 30],
+  rest: [5, 10, 15, 20, 30],
 };
 
 function pad(value: number) {
@@ -172,7 +169,9 @@ export default function App() {
     "morrow.durations",
     defaultDurations,
   );
-  const [remaining, setRemaining] = useState(defaultDurations.focus * 60);
+  const [remaining, setRemaining] = useState(
+    (durations.focus ?? defaultDurations.focus) * 60,
+  );
   const [running, setRunning] = useState(false);
   const [task, setTask] = usePersistentState("morrow.currentTask", "");
   const [sessionNote, setSessionNote] = useState("");
@@ -198,6 +197,7 @@ export default function App() {
     window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light",
   );
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [clearHistoryConfirmOpen, setClearHistoryConfirmOpen] = useState(false);
   const [durationMenuOpen, setDurationMenuOpen] = useState(false);
   const [customMinutes, setCustomMinutes] = useState(defaultDurations.focus);
   const [availableUpdate, setAvailableUpdate] =
@@ -212,7 +212,7 @@ export default function App() {
   const [windowsNotificationsEnabled, setWindowsNotificationsEnabled] =
     usePersistentState("morrow.windowsNotifications", true);
   const [trayClickAction, setTrayClickAction] =
-    usePersistentState<TrayAction>("morrow.trayClickAction", "toggleTimer");
+    usePersistentState<TrayAction>("morrow.trayClickAction", "showWindow");
   const [trayDoubleClickAction, setTrayDoubleClickAction] =
     usePersistentState<TrayAction>(
       "morrow.trayDoubleClickAction",
@@ -231,6 +231,7 @@ export default function App() {
   const updateDismissedUntilRef = useRef(0);
   const updateInstallRef = useRef(false);
   const manualUpdateTimerRef = useRef<number | null>(null);
+  const clearHistoryDialogRef = useRef<HTMLElement>(null);
   const trayActionHandlerRef = useRef<(action: TrayAction) => void>(() => {});
   const trayActionsRef = useRef({
     click: trayClickAction,
@@ -280,8 +281,7 @@ export default function App() {
       };
       setRecords((current) => [newRecord, ...current].slice(0, 200));
       setSessionNote("");
-      setMode("short");
-      setRemaining((durations.short ?? defaultDurations.short) * 60);
+      setRemaining((durations.focus ?? defaultDurations.focus) * 60);
     } else {
       setMode("focus");
       setRemaining((durations.focus ?? defaultDurations.focus) * 60);
@@ -311,6 +311,14 @@ export default function App() {
   }, [alwaysOnTop]);
 
   useEffect(() => {
+    void setWindowSize(sizePreset);
+  }, [sizePreset]);
+
+  useEffect(() => {
+    void setWindowMaterial(theme);
+  }, [theme]);
+
+  useEffect(() => {
     const media = window.matchMedia("(prefers-color-scheme: dark)");
     const updateSystemTheme = (event: MediaQueryListEvent | MediaQueryList) => {
       setSystemTheme(event.matches ? "dark" : "light");
@@ -325,6 +333,82 @@ export default function App() {
     document.title = t("appTitle");
     void setAppLanguage(locale);
   }, [locale, t]);
+
+  useEffect(() => {
+    if (Object.prototype.hasOwnProperty.call(durations, "rest")) return;
+    const legacyDurations = durations as unknown as Record<string, number>;
+    setDurations({
+      focus: Number.isFinite(legacyDurations.focus)
+        ? legacyDurations.focus
+        : defaultDurations.focus,
+      rest: Number.isFinite(legacyDurations.short)
+        ? legacyDurations.short
+        : defaultDurations.rest,
+    });
+  }, [durations, setDurations]);
+
+  useEffect(() => {
+    const migrationKey = "morrow.trayClickAction.migrated.v0.6.10";
+    if (localStorage.getItem(migrationKey)) return;
+    if (trayClickAction === "toggleTimer") {
+      setTrayClickAction("showWindow");
+    }
+    localStorage.setItem(migrationKey, "true");
+  }, [setTrayClickAction, trayClickAction]);
+
+  useEffect(() => {
+    if (!clearHistoryConfirmOpen) return;
+
+    const previouslyFocused = document.activeElement as HTMLElement | null;
+    const dialog = clearHistoryDialogRef.current;
+    const backdrop = dialog?.parentElement;
+    const backgroundElements = Array.from(backdrop?.parentElement?.children ?? [])
+      .filter((element): element is HTMLElement =>
+        element instanceof HTMLElement && element !== backdrop,
+      )
+      .map((element) => ({ element, inert: element.inert }));
+    backgroundElements.forEach(({ element }) => { element.inert = true; });
+    const focusableElements = () =>
+      Array.from(
+        dialog?.querySelectorAll<HTMLElement>(
+          'button:not([disabled]), [href], input:not([disabled]), [tabindex]:not([tabindex="-1"])',
+        ) ?? [],
+      );
+
+    dialog?.querySelector<HTMLElement>("[data-dialog-cancel]")?.focus();
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        setClearHistoryConfirmOpen(false);
+        return;
+      }
+
+      if (event.key !== "Tab") return;
+      const elements = focusableElements();
+      if (elements.length === 0) return;
+      const first = elements[0];
+      const last = elements[elements.length - 1];
+
+      if (!dialog?.contains(document.activeElement)) {
+        event.preventDefault();
+        first.focus();
+      } else if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      backgroundElements.forEach(({ element, inert }) => { element.inert = inert; });
+      if (previouslyFocused?.isConnected) previouslyFocused.focus();
+    };
+  }, [clearHistoryConfirmOpen]);
 
   useEffect(() => {
     let active = true;
@@ -505,9 +589,8 @@ export default function App() {
     setDurationMenuOpen(false);
   };
 
-  const applySize = async (preset: SizePreset) => {
+  const applySize = (preset: SizePreset) => {
     setSizePreset(preset);
-    await setWindowSize(preset);
   };
 
   const nextSizePreset =
@@ -585,6 +668,9 @@ export default function App() {
 
   const runTrayAction = (action: TrayAction) => {
     switch (action) {
+      case "showWindow":
+        void showMainWindow();
+        break;
       case "toggleTimer":
         toggleTimer();
         break;
@@ -981,7 +1067,10 @@ export default function App() {
                 <strong>{t("completedToday", { count: todayRecords.length })}</strong>
               </div>
               {records.length > 0 && (
-                <button className="clear-button" onClick={() => setRecords([])}>
+                <button
+                  className="clear-button"
+                  onClick={() => setClearHistoryConfirmOpen(true)}
+                >
                   <Trash2 size={13} /> {t("clear")}
                 </button>
               )}
@@ -1055,6 +1144,54 @@ export default function App() {
             if (availableUpdate) void installUpdate(availableUpdate, true);
           }}
         />
+      )}
+
+      {clearHistoryConfirmOpen && (
+        <div
+          className="confirm-backdrop"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) {
+              setClearHistoryConfirmOpen(false);
+            }
+          }}
+        >
+          <section
+            ref={clearHistoryDialogRef}
+            className="confirm-dialog"
+            role="alertdialog"
+            aria-modal="true"
+            aria-labelledby="clear-history-title"
+            aria-describedby="clear-history-description"
+          >
+            <span className="confirm-dialog-icon" aria-hidden="true">
+              <AlertTriangle size={19} />
+            </span>
+            <div className="confirm-dialog-copy">
+              <strong id="clear-history-title">{t("clearHistoryTitle")}</strong>
+              <span id="clear-history-description">
+                {t("clearHistoryDescription", { count: records.length })}
+              </span>
+            </div>
+            <div className="confirm-dialog-actions">
+              <button
+                data-dialog-cancel
+                className="confirm-dialog-cancel"
+                onClick={() => setClearHistoryConfirmOpen(false)}
+              >
+                {t("cancel")}
+              </button>
+              <button
+                className="confirm-dialog-danger"
+                onClick={() => {
+                  setRecords([]);
+                  setClearHistoryConfirmOpen(false);
+                }}
+              >
+                {t("confirmClearHistory")}
+              </button>
+            </div>
+          </section>
+        </div>
       )}
 
       {availableUpdate && !updateDismissed && (
