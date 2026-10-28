@@ -6,6 +6,10 @@ A lightweight desktop clock and focus companion for Windows 11, built with Tauri
 
 Current stable release: [`v0.6.11`](https://github.com/GrayJS/desk-clock/releases/latest)
 
+v0.6.11 adds configurable Pomodoro cycles and includes the frosted-glass interface,
+history-clear confirmation, and tray improvements. See the
+[release notes](docs/releases/v0.6.11.md) or [full changelog](CHANGELOG.md).
+
 ## Preview
 
 ![Morrow Desk Clock focus tomato tree in dark mode](docs/morrow-tree-preview-en.jpg)
@@ -13,10 +17,13 @@ Current stable release: [`v0.6.11`](https://github.com/GrayJS/desk-clock/release
 ## Download and Install
 
 1. Open [GitHub Releases](https://github.com/GrayJS/desk-clock/releases/latest).
-2. Download the latest x64 setup executable from the release assets.
+2. Download the [v0.6.11 Windows x64 installer](https://github.com/GrayJS/desk-clock/releases/download/v0.6.11/Morrow._0.6.11_x64-setup.exe).
 3. Run the installer and launch Morrow.
 
 Windows 10/11 x64 and Microsoft Edge WebView2 are required. WebView2 is normally preinstalled on Windows 11.
+
+Existing users can open Settings → Check for updates and confirm a silent upgrade.
+Local history and settings are preserved.
 
 ## Features
 
@@ -27,7 +34,7 @@ Windows 10/11 x64 and Microsoft Edge WebView2 are required. WebView2 is normally
 - Dark, light, and Windows system theme modes
 - Instant Simplified Chinese and English switching
 - Unified settings panel for appearance, window, startup, and update options
-- Focus and rest timer modes; completed focus sessions stay in focus mode, ready for the next manual start
+- A manual timer with focus and rest modes; completed focus sessions stay in focus mode until you start the next session
 - Quick duration presets and custom 1–180 minute countdowns
 - A third Cycle tab with 1–99 rounds and independent focus/rest durations that advance automatically
 - Current goal, quick notes, and completed focus-session history with confirmation before clearing records
@@ -35,6 +42,15 @@ Windows 10/11 x64 and Microsoft Edge WebView2 are required. WebView2 is normally
 - Optional start at login, synchronized with the actual Windows startup entry
 - Native background timing with optional Windows notifications when a session ends
 - iOS-inspired frosted glass, dimensional clock digits, highlighted buttons, and press feedback with native Windows Mica and an Acrylic fallback
+
+## Quick Start
+
+The main tabs appear in this order:
+
+1. **Timer**: choose a focus or rest duration, enter a goal and optional note, then start timing.
+2. **Tree**: see today's tomatoes and how the tree evolves with completed focus sessions.
+3. **Cycle**: configure multiple focus rounds and rests that advance automatically.
+4. **History**: review completed focus sessions and notes; clearing requires confirmation.
 
 ## Settings
 
@@ -67,12 +83,19 @@ Open the third tab, Cycle, to choose 1–99 rounds and focus/rest durations of
 1–180 minutes each. Press Start cycle. The first plan defaults to four rounds
 using your current timer durations; later changes are saved separately.
 
+For example, **4 rounds with 25 minutes of focus and 5 minutes of rest** run four
+focus periods and three rests, for **115 minutes** total. The cycle stops after
+the final focus period.
+
 - Automatically alternate focus and rest, stopping after the final focus without an extra rest
 - Record each completed focus and grow a tomato; rests never create focus records
 - Pause, resume, or end a cycle; end the run before editing its plan
 - The normal timer, compact timer, and tray share the same start/pause and reset controls; reset restarts only the current phase and pauses it
 - Mode and duration changes are locked during a cycle; View cycle in compact mode opens the standard window's Cycle tab
 - Every phase follows the Windows notification preference; timing continues in the tray, while quitting ends the run but preserves the plan
+
+If Start cycle is unavailable, pause and reset the manual timer, or finish its
+current session, before starting a cycle.
 
 ## Daily Focus Tomato Tree
 
@@ -105,7 +128,7 @@ using your current timer durations; later changes are saved separately.
 
 ## Data and Privacy
 
-- Focus history, the current goal, durations, theme, language, window size, always-on-top, notification, and tray preferences stay in local `localStorage`
+- Focus history, the current goal, durations, cycle plans, theme, language, window size, always-on-top, notification, and tray preferences stay in local `localStorage`
 - Start at login is managed by the Windows login entry and is never uploaded to a remote service
 - No account is required
 - Focus history and quick notes are never uploaded
@@ -116,7 +139,7 @@ using your current timer durations; later changes are saved separately.
 Node.js 20+, Rust stable, Windows WebView2, and an NSIS build environment are required.
 
 ```powershell
-npm install
+npm ci
 npm run tauri dev
 ```
 
@@ -125,6 +148,19 @@ To run only the frontend preview:
 ```powershell
 npm run dev
 ```
+
+### Tests and Checks
+
+Run these commands from the repository root:
+
+```powershell
+npm test
+npm run build
+cargo test --locked --manifest-path src-tauri/Cargo.toml
+```
+
+`npm test` covers phase order, the final round, plan isolation, and input bounds.
+The release workflow runs these tests before building the installer.
 
 ## Build the Installer
 
@@ -149,10 +185,13 @@ outside this repository.
 ```text
 src/                         React + TypeScript interface
 src/components/SettingsPanel.tsx Unified settings panel
+src/components/CyclePanel.tsx Cycle configuration, progress, and controls
 src/components/FocusTree.tsx Three.js daily achievement tree
+src/lib/pomodoroCycle.ts     Cycle plan validation and phase transitions
 src/lib/                     Window, background notification, and updater helpers
 src-tauri/src/lib.rs         Tauri tray, notification, and native window logic
-docs/                        README screenshots
+tests/                       Cycle logic tests
+docs/                        Preview screenshots and release notes
 ```
 
 ## Tech Stack

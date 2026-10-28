@@ -6,6 +6,9 @@
 
 当前稳定版本：[`v0.6.11`](https://github.com/GrayJS/desk-clock/releases/latest)
 
+v0.6.11 新增可配置轮数与时长的番茄循环，并包含玻璃界面、清空确认框及托盘操作优化。
+查看 [本次发布说明](docs/releases/v0.6.11.md) 或 [完整更新记录](CHANGELOG.md)。
+
 ## 效果预览
 
 ![Morrow 桌面时钟番茄成果树浅色界面](docs/morrow-tree-preview.jpg)
@@ -13,10 +16,12 @@
 ## 下载与安装
 
 1. 打开 [GitHub Releases](https://github.com/GrayJS/desk-clock/releases/latest)。
-2. 下载最新的 `Morrow 桌面时钟_*_x64-setup.exe`。
+2. 下载 Windows x64 安装包：[v0.6.11 安装程序](https://github.com/GrayJS/desk-clock/releases/download/v0.6.11/Morrow._0.6.11_x64-setup.exe)。
 3. 运行安装包并启动 Morrow。
 
 需要 Windows 10/11 x64 与 Microsoft Edge WebView2。Windows 11 通常已经预装 WebView2。
+
+已安装旧版的用户可打开“设置 → 手动检查更新”，确认后静默升级，原有本地记录与设置会保留。
 
 ## 主要功能
 
@@ -27,7 +32,7 @@
 - 深色、浅色与跟随 Windows 系统三种主题模式
 - 简体中文与 English 即时切换
 - 统一设置面板，集中管理外观、窗口、启动与更新选项
-- 专注和休息两种计时模式；专注完成后保留在专注模式，等待手动开始下一轮
+- 普通计时器提供专注和休息两种模式；专注完成后停留在专注模式，等待手动开始下一轮
 - 常用时长快捷档位与 1–180 分钟自定义倒计时
 - 第三个“循环”标签页支持设置 1–99 轮及独立的专注、休息时长，按计划自动衔接
 - 本轮目标、随手记和专注完成记录，清空记录前需二次确认
@@ -35,6 +40,15 @@
 - 可选开机自启动，并与 Windows 实际启动项状态同步
 - 原生后台计时，可选择在完成后发送 Windows 通知
 - iOS 风格磨砂玻璃界面，配合立体数字、按钮高光和按压反馈；Windows 原生 Mica 材质与 Acrylic 回退
+
+## 快速上手
+
+主界面的标签页依次为：
+
+1. **番茄钟**：设置当前专注或休息时长，填写本轮目标与随手记，然后开始计时。
+2. **成长树**：查看当天专注产生的番茄，以及随成果逐步进化的树形。
+3. **循环**：设置多轮专注与休息计划，并自动衔接每个阶段。
+4. **记录**：查看已完成的专注与备注；清空前会要求确认。
 
 ## 设置
 
@@ -63,12 +77,17 @@
 打开第三个“循环”标签页，设置轮数（1–99 轮）、专注时长和休息时长（各 1–180 分钟），
 再点击“开始循环”。默认计划为 4 轮，首次使用时会带入当前专注和休息时长，之后独立保存。
 
+例如设置 **4 轮、每轮专注 25 分钟、休息 5 分钟**，实际会运行 4 次专注和 3 次休息，
+预计总时长为 **115 分钟**，最后一次专注结束后停止。
+
 - 按“专注 → 休息 → 下一轮专注”自动运行，最后一轮专注结束后直接停止，不追加休息
 - 每次专注完成照常写入记录并为成果树增加番茄；休息不生成专注记录
 - 支持暂停、继续和结束循环；运行中固定计划，结束后可修改轮数与时长
 - 普通计时器、迷你计时器与托盘的开始/暂停、重置操作控制同一个当前计时；重置仅重置当前阶段并暂停
 - 循环中禁止从普通计时器切换模式或修改时长；迷你窗口可通过“查看循环”返回标准窗口的循环页
 - 每段结束沿用 Windows 通知偏好；关闭到托盘后继续计时，退出应用会结束本次运行，但保留计划
+
+如果“开始循环”暂时不可用，请先暂停并重置普通计时器，或完成当前计时，再启动循环。
 
 ## 每日番茄成果树
 
@@ -101,7 +120,7 @@
 
 ## 数据与隐私
 
-- 专注记录、当前目标、时长、主题、语言、窗口尺寸、置顶、通知和托盘偏好均保存在本机 `localStorage`
+- 专注记录、当前目标、时长、循环计划、主题、语言、窗口尺寸、置顶、通知和托盘偏好均保存在本机 `localStorage`
 - 开机启动由 Windows 登录启动项管理，不会上传到远程服务
 - 不需要注册账号
 - 不上传专注记录或随手记
@@ -112,7 +131,7 @@
 需要 Node.js 20+、Rust stable、Windows WebView2 和 NSIS 构建环境。
 
 ```powershell
-npm install
+npm ci
 npm run tauri dev
 ```
 
@@ -121,6 +140,18 @@ npm run tauri dev
 ```powershell
 npm run dev
 ```
+
+### 测试与检查
+
+在仓库根目录执行：
+
+```powershell
+npm test
+npm run build
+cargo test --locked --manifest-path src-tauri/Cargo.toml
+```
+
+`npm test` 验证循环的阶段顺序、末轮结束、计划隔离及输入范围；发布流水线会先运行这些测试，再构建安装包。
 
 ## 构建安装包
 
@@ -144,10 +175,13 @@ src-tauri/target/release/bundle/nsis/
 ```text
 src/                         React + TypeScript 界面
 src/components/SettingsPanel.tsx 统一设置面板
+src/components/CyclePanel.tsx 番茄循环配置、进度与控制
 src/components/FocusTree.tsx Three.js 每日成果树
+src/lib/pomodoroCycle.ts     循环计划校验与阶段切换
 src/lib/                     窗口、后台通知与更新检测
 src-tauri/src/lib.rs         Tauri 托盘、通知和原生窗口逻辑
-docs/                        README 效果截图
+tests/                       循环逻辑测试
+docs/                        预览截图与发布说明
 ```
 
 ## 技术栈
