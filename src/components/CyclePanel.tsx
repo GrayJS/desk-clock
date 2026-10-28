@@ -1,4 +1,4 @@
-import { Check, Pause, Play, Repeat2, Square, Timer } from "lucide-react";
+import { Check, Pause, Play, Repeat2, SkipForward, Square, Timer } from "lucide-react";
 import { useId } from "react";
 import type { Translate } from "../i18n";
 import {
@@ -19,11 +19,12 @@ type CyclePanelProps = {
   onStart: () => void;
   onToggle: () => void;
   onStop: () => void;
+  onSkip: () => void;
 };
 
 export default function CyclePanel({
   t, plan, run, running, timerText, startDisabled,
-  onPlanChange, onStart, onToggle, onStop,
+  onPlanChange, onStart, onToggle, onStop, onSkip,
 }: CyclePanelProps) {
   const id = useId();
   const active = Boolean(run && !run.finished);
@@ -79,7 +80,7 @@ export default function CyclePanel({
           <div className={`cycle-progress ${run.finished ? "completed" : ""}`}>
             <div className="cycle-progress-heading" role="status" aria-live="polite">
               <span>{run.finished
-                ? t("cycleAllDone")
+                ? t(run.skippedFocusRounds > 0 ? "cycleAllEnded" : "cycleAllDone")
                 : t("cycleRoundProgress", { current: run.round, total: run.plan.rounds })}</span>
               <strong>{run.finished
                 ? <Check size={15} />
@@ -88,10 +89,12 @@ export default function CyclePanel({
             {!run.finished && <b className="cycle-countdown">{timerText}</b>}
             <progress
               max={run.plan.rounds}
-              value={run.completedRounds}
-              aria-label={t("cycleCompletedRounds", { count: run.completedRounds, total: run.plan.rounds })}
+              value={run.processedRounds}
+              aria-label={t("cycleProcessedRounds", { count: run.processedRounds, total: run.plan.rounds })}
             />
-            <small>{t("cycleCompletedRounds", { count: run.completedRounds, total: run.plan.rounds })}</small>
+            <small>{run.skippedFocusRounds > 0
+              ? t("cycleFocusSummary", { completed: run.completedRounds, skipped: run.skippedFocusRounds })
+              : t("cycleCompletedRounds", { count: run.completedRounds, total: run.plan.rounds })}</small>
           </div>
         )}
 
@@ -101,6 +104,9 @@ export default function CyclePanel({
               <button type="button" className="primary-control" onClick={onToggle}>
                 {running ? <Pause size={16} fill="currentColor" /> : <Play size={16} fill="currentColor" />}
                 {t(running ? "pause" : "resumeCycle")}
+              </button>
+              <button type="button" className="cycle-skip" onClick={onSkip}>
+                <SkipForward size={13} /> {t(run?.phase === "focus" ? "skipFocus" : "skipRest")}
               </button>
               <button type="button" className="cycle-stop" onClick={onStop}>
                 <Square size={13} /> {t("stopCycle")}

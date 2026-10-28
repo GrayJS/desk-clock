@@ -17,6 +17,7 @@ import {
   Repeat2,
   RotateCcw,
   Settings2,
+  SkipForward,
   Sparkles,
   Sprout,
   Square,
@@ -51,6 +52,7 @@ import {
   type CyclePlan,
   type CycleRun,
 } from "./lib/pomodoroCycle";
+import { elapsedSessionSeconds, focusSecondsForRecord, isCompletedFocus } from "./lib/sessionRecords";
 import {
   getAutoStartEnabled,
   setAutoStartEnabled,
@@ -87,6 +89,7 @@ import type {
   AutoStartStatus,
   ManualUpdateStatus,
   SessionRecord,
+  SessionOutcome,
   SizePreset,
   ThemePreference,
   TimerMode,
@@ -276,11 +279,11 @@ export default function App() {
     () => records.filter((record) => sameLocalDay(record.completedAt)),
     [records, todayKey],
   );
-  const todayMinutes = todayRecords.reduce(
-    (sum, record) => sum + record.durationMinutes,
+  const todayMinutes = Math.floor(todayRecords.reduce(
+    (sum, record) => sum + focusSecondsForRecord(record),
     0,
-  );
-  const todayTomatoes = todayRecords.length;
+  ) / 60);
+  const todayTomatoes = todayRecords.filter(isCompletedFocus).length;
   const tomatoGrowthProgress = mode === "focus" ? progress : 0;
   const remainingFocusMinutes = mode === "focus" ? remaining / 60 : currentMinutes;
   const isTomatoGrowing = mode === "focus" && remaining < totalSeconds;
@@ -297,27 +300,32 @@ export default function App() {
     void scheduleTimerNotification(seconds, title, body);
   }, [t, task]);
 
-  const finishSession = useCallback(() => {
+  const finishSession = useCallback((outcome: SessionOutcome = "completed") => {
     if (completingRef.current) return;
     completingRef.current = true;
+    const elapsedSeconds = elapsedSessionSeconds(
+      totalSeconds, remaining, timerDeadlineRef.current, Date.now(),
+    );
     timerDeadlineRef.current = null;
-    playCompletionTone();
+    if (outcome === "completed") playCompletionTone();
 
-    if (mode === "focus") {
+    if (mode === "focus" || outcome === "skipped") {
       const newRecord: SessionRecord = {
         id: crypto.randomUUID(),
-        title: task.trim() || t("unnamedFocus"),
+        title: task.trim() || t(mode === "focus" ? "unnamedFocus" : "unnamedRest"),
         note: sessionNote.trim(),
         mode,
         durationMinutes: currentMinutes,
         completedAt: new Date().toISOString(),
+        outcome,
+        elapsedSeconds,
       };
       setRecords((current) => [newRecord, ...current].slice(0, 200));
       setSessionNote("");
     }
 
     if (cycleRun && !cycleRun.finished) {
-      const nextRun = advanceCycle(cycleRun);
+      const nextRun = advanceCycle(cycleRun, outcome);
       const nextMode = nextRun.finished ? "focus" : nextRun.phase;
       const seconds = nextRun.finished
         ? (durations.focus ?? defaultDurations.focus) * 60
@@ -340,8 +348,8 @@ export default function App() {
     window.setTimeout(() => {
       completingRef.current = false;
     }, 300);
-  }, [currentMinutes, cycleRun, durations, mode, running, schedulePhaseNotification,
-    sessionNote, setRecords, t, task, windowsNotificationsEnabled]);
+  }, [currentMinutes, cycleRun, durations, mode, remaining, running, schedulePhaseNotification,
+    sessionNote, setRecords, t, task, totalSeconds, windowsNotificationsEnabled]);
 
   useEffect(() => {
     if (!running) return;
@@ -616,8 +624,15 @@ export default function App() {
   };
 
   const completeManually = () => {
+    if (completingRef.current) return;
     void cancelTimerNotification();
     finishSession();
+  };
+
+  const skipCurrentCyclePhase = () => {
+    if (!cycleActive || completingRef.current) return;
+    void cancelTimerNotification();
+    finishSession("skipped");
   };
 
   const openDurationMenu = () => {
@@ -948,6 +963,16 @@ export default function App() {
                 <Play size={17} fill="currentColor" />
               )}
             </button>
+            {cycleActive && (
+              <button
+                className="compact-reset compact-skip"
+                aria-label={t(mode === "focus" ? "skipFocus" : "skipRest")}
+                title={t(mode === "focus" ? "skipFocus" : "skipRest")}
+                onClick={skipCurrentCyclePhase}
+              >
+                <SkipForward size={15} />
+              </button>
+            )}
           </div>
         </div>
         <div className="compact-progress" aria-hidden="true">
@@ -962,7 +987,7 @@ export default function App() {
             }}
           >
             <Repeat2 size={11} />
-            {t("cycleCompletedRounds", { count: cycleRun.completedRounds, total: cycleRun.plan.rounds })}
+            {t("cycleProcessedRounds", { count: cycleRun.processedRounds, total: cycleRun.plan.rounds })}
             <span>{t("openCycle")}</span>
           </button>
         ) : <div className="compact-mode-switcher">
@@ -1117,6 +1142,16 @@ export default function App() {
                 <button className="secondary-control" aria-label={t("completeRound")} onClick={completeManually}>
                   <Square size={15} fill="currentColor" />
                 </button>
+                {cycleActive && (
+                  <button
+                    className="secondary-control"
+                    aria-label={t(mode === "focus" ? "skipFocus" : "skipRest")}
+                    title={t(mode === "focus" ? "skipFocus" : "skipRest")}
+                    onClick={skipCurrentCyclePhase}
+                  >
+                    <SkipForward size={17} />
+                  </button>
+                )}
               </div>
             </div>
 
@@ -1176,13 +1211,14 @@ export default function App() {
             onStart={startPomodoroCycle}
             onToggle={toggleTimer}
             onStop={stopPomodoroCycle}
+            onSkip={skipCurrentCyclePhase}
           />
         ) : (
           <section className="history-view">
             <div className="history-heading">
               <div>
                 <span>{t("focusFootprints")}</span>
-                <strong>{t("completedToday", { count: todayRecords.length })}</strong>
+                <strong>{t("completedToday", { count: todayTomatoes })}</strong>
               </div>
               {records.length > 0 && (
                 <button
@@ -1203,10 +1239,22 @@ export default function App() {
               ) : (
                 records.map((record) => (
                   <article className="history-item" key={record.id}>
-                    <span className="record-dot" />
+                    <span className={`record-dot ${record.outcome === "skipped" ? "skipped" : ""}`} />
                     <div className="record-copy">
-                      <strong>{record.title}</strong>
+                      <div className="record-title-row">
+                        <strong>{record.title}</strong>
+                        {record.outcome === "skipped" && (
+                          <span className="record-skip-badge">
+                            {t(record.mode === "focus" ? "skippedFocus" : "skippedRest")}
+                          </span>
+                        )}
+                      </div>
                       {record.note && <p>{record.note}</p>}
+                      {record.outcome === "skipped" && (
+                        <p className="record-duration-detail">
+                          {t("plannedDuration", { minutes: record.durationMinutes })}
+                        </p>
+                      )}
                       <span>
                         {new Intl.DateTimeFormat(locale, {
                           month: "numeric",
@@ -1216,7 +1264,12 @@ export default function App() {
                         }).format(new Date(record.completedAt))}
                       </span>
                     </div>
-                    <b>{record.durationMinutes}<small>min</small></b>
+                    <b>
+                      {record.outcome === "skipped"
+                        ? formatTimer(record.elapsedSeconds ?? 0)
+                        : record.durationMinutes}
+                      <small>{record.outcome === "skipped" ? t("elapsedTime") : "min"}</small>
+                    </b>
                   </article>
                 ))
               )}

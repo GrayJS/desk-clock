@@ -280,6 +280,11 @@ button:focus-visible, input:focus-visible, textarea:focus-visible {
 .record-copy strong { overflow: hidden; color: #d6d9d5; font-size: 11px; font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
 .record-copy p { margin: 3px 0; color: #858b84; font-size: 10px; line-height: 1.45; }
 .record-copy span { margin-top: 2px; color: #5f655f; font-size: 9px; }
+.record-title-row { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.record-title-row > strong { flex: 1; min-width: 0; }
+.record-copy .record-skip-badge { flex: 0 0 auto; margin: 0; padding: 2px 5px; border-radius: 5px; color: #e5c788; background: rgba(206,161,72,.12); font-size: 8px; white-space: nowrap; }
+.record-copy .record-duration-detail { color: var(--text-tertiary); font-size: 9px; }
+.record-dot.skipped { background: #cda355; box-shadow: 0 0 0 1px rgba(205,163,85,.35); }
 .history-item > b { color: #b9c0b7; font-size: 13px; font-weight: 500; }
 .history-item > b small { margin-left: 2px; color: #616761; font-size: 8px; font-weight: 500; }
 .empty-state { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; color: #636963; text-align: center; }
@@ -311,12 +316,15 @@ button:focus-visible, input:focus-visible, textarea:focus-visible {
 .cycle-progress progress::-webkit-progress-value { border-radius: inherit; background: var(--lime); transition: width .25s ease; }
 .cycle-progress > small { color: var(--text-tertiary); font-size: 9px; }
 .cycle-progress.completed { border-color: rgba(146,178,65,.32); }
-.cycle-controls { display: flex; justify-content: center; gap: 9px; }
-.cycle-controls button { display: flex; align-items: center; justify-content: center; border: 0; cursor: pointer; transition: transform .15s ease, background .15s ease; }
+.cycle-controls { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
+.cycle-controls button { display: flex; align-items: center; justify-content: center; min-height: 32px; border: 0; cursor: pointer; white-space: nowrap; transition: transform .15s ease, background .15s ease; }
 .cycle-controls .primary-control { height: 36px; min-width: 126px; font-size: 11px; }
 .cycle-controls button:disabled { opacity: .45; cursor: not-allowed; transform: none; }
 .cycle-stop { gap: 5px; padding: 0 11px; border-radius: 999px; color: var(--text-secondary); background: var(--raised-surface); font-size: 10px; box-shadow: inset 0 1px var(--glass-highlight), 0 4px 12px rgba(0,0,0,.08); }
 .cycle-stop:hover { color: #e9a399; }
+.cycle-skip { gap: 5px; padding: 0 10px; border-radius: 999px; color: var(--text-secondary); background: var(--raised-surface); font-size: 10px; box-shadow: inset 0 1px var(--glass-highlight), 0 4px 12px rgba(0,0,0,.08); }
+.cycle-skip:hover { color: var(--text-primary); background: var(--glass-surface); }
+.compact-countdown strong, .compact-timer-controls { flex-shrink: 0; }
 .cycle-help { flex: 0 0 auto; padding: 0 4px; }
 .cycle-busy-hint { text-align: center; }
 .compact-cycle-link { display: flex; align-items: center; gap: 5px; width: 100%; min-height: 24px; padding: 0 4px; border: 0; border-radius: 7px; color: var(--text-secondary); background: var(--soft-surface); font-size: 8px; cursor: pointer; }
@@ -498,9 +506,11 @@ footer > span { display: flex; align-items: center; gap: 5px; }
 .app-shell[data-theme="light"] .confirm-dialog-cancel:hover { background: rgba(39,49,36,.11); }
 .app-shell[data-theme="light"] .history-item { border-top-color: rgba(35,45,33,.09); }
 .app-shell[data-theme="light"] .record-copy p { color: #636b62; }
+.app-shell[data-theme="light"] .record-copy .record-skip-badge { color: #7b5b1d; background: rgba(176,132,44,.12); }
 .app-shell[data-theme="light"] .history-item > b { color: #4c554b; }
 .app-shell[data-theme="light"] .history-item > b small { color: #777f76; }
 .app-shell[data-theme="light"] .record-dot { border-color: #eef2ea; background: #8cac29; }
+.app-shell[data-theme="light"] .record-dot.skipped { background: #b58a3b; }
 .app-shell[data-theme="light"] .empty-state,
 .app-shell[data-theme="light"] footer { color: #737b72; }
 .app-shell[data-theme="light"] .footer-version { color: #697168; background: rgba(255,255,255,.48); }

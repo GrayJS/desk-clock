@@ -1,4 +1,4 @@
-import type { TimerMode } from "../types";
+import type { SessionOutcome, TimerMode } from "../types";
 
 export type CyclePlan = {
   rounds: number;
@@ -10,6 +10,8 @@ export type CycleRun = {
   plan: CyclePlan;
   round: number;
   completedRounds: number;
+  processedRounds: number;
+  skippedFocusRounds: number;
   phase: TimerMode;
   finished: boolean;
 };
@@ -33,20 +35,27 @@ export function startCycle(plan: CyclePlan): CycleRun {
     plan: normalizeCyclePlan(plan),
     round: 1,
     completedRounds: 0,
+    processedRounds: 0,
+    skippedFocusRounds: 0,
     phase: "focus",
     finished: false,
   };
 }
 
-export function advanceCycle(run: CycleRun): CycleRun {
+export function advanceCycle(run: CycleRun, outcome: SessionOutcome = "completed"): CycleRun {
   if (run.finished) return run;
   if (run.phase === "rest") {
     return { ...run, round: run.round + 1, phase: "focus" };
   }
-  const completedRounds = run.round;
-  return completedRounds === run.plan.rounds
-    ? { ...run, completedRounds, finished: true }
-    : { ...run, completedRounds, phase: "rest" };
+  const next = {
+    ...run,
+    processedRounds: run.round,
+    completedRounds: run.completedRounds + (outcome === "completed" ? 1 : 0),
+    skippedFocusRounds: run.skippedFocusRounds + (outcome === "skipped" ? 1 : 0),
+  };
+  return run.round === run.plan.rounds
+    ? { ...next, finished: true }
+    : { ...next, phase: "rest" };
 }
 
 export function cyclePhaseSeconds(run: CycleRun) {

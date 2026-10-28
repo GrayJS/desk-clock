@@ -1,4 +1,5 @@
 export type TimerMode = "focus" | "rest";
+export type SessionOutcome = "completed" | "skipped";
 
 export type SessionRecord = {
   id: string;
@@ -7,6 +8,8 @@ export type SessionRecord = {
   mode: TimerMode;
   durationMinutes: number;
   completedAt: string;
+  outcome?: SessionOutcome;
+  elapsedSeconds?: number;
 };
 
 export type SizePreset = "compact" | "standard" | "expanded";

@@ -4,11 +4,11 @@
 
 A lightweight desktop clock and focus companion for Windows 11, built with Tauri 2, React, TypeScript, and Three.js—without Electron.
 
-Current stable release: [`v0.6.11`](https://github.com/GrayJS/desk-clock/releases/latest)
+Current stable release: [`v0.6.12`](https://github.com/GrayJS/desk-clock/releases/latest)
 
-v0.6.11 adds configurable Pomodoro cycles and includes the frosted-glass interface,
-history-clear confirmation, and tray improvements. See the
-[release notes](docs/releases/v0.6.11.md) or [full changelog](CHANGELOG.md).
+v0.6.12 lets you skip focus or rest during a cycle while preserving the phase,
+planned duration, elapsed time, and note. See the
+[release notes](docs/releases/v0.6.12.md) or [full changelog](CHANGELOG.md).
 
 ## Preview
 
@@ -19,7 +19,7 @@ The screenshot illustrates the tree view; controls and layout may differ in the 
 ## Download and Install
 
 1. Open [GitHub Releases](https://github.com/GrayJS/desk-clock/releases/latest).
-2. Download the [v0.6.11 Windows x64 installer](https://github.com/GrayJS/desk-clock/releases/download/v0.6.11/Morrow._0.6.11_x64-setup.exe).
+2. Download the [v0.6.12 Windows x64 installer](https://github.com/GrayJS/desk-clock/releases/download/v0.6.12/Morrow._0.6.12_x64-setup.exe).
 3. Run the installer and launch Morrow.
 
 Windows 10/11 x64 and Microsoft Edge WebView2 are required. WebView2 is normally preinstalled on Windows 11.
@@ -39,7 +39,7 @@ Local history and settings are preserved.
 - A manual timer with focus and rest modes; completed focus sessions stay in focus mode until you start the next session
 - Quick duration presets and custom 1–180 minute countdowns
 - A third Cycle tab with 1–99 rounds and independent focus/rest durations that advance automatically
-- Current goal, quick notes, and completed focus-session history with confirmation before clearing records
+- Current goal, quick notes, and completed or skipped session history with confirmation before clearing records
 - System tray background mode with restore and quit actions
 - Optional start at login, synchronized with the actual Windows startup entry
 - Deadline-based countdowns with optional completion notifications scheduled by native background tasks
@@ -52,7 +52,7 @@ In standard and expanded windows, the tabs appear in this order:
 1. **Timer**: choose a focus or rest duration, enter a goal and optional note, then start timing.
 2. **Tree**: see today's tomatoes and how the tree evolves with completed focus sessions.
 3. **Cycle**: configure multiple focus rounds and rests that advance automatically.
-4. **History**: review completed focus sessions and notes; clearing requires confirmation.
+4. **History**: review completed focus, skipped focus/rest phases, and notes; clearing requires confirmation.
 
 A manual focus session records its completion and stops. A manual rest returns
 to focus mode and also waits for a manual start. Complete this round records the
@@ -110,6 +110,9 @@ the final focus period.
 - Pause, resume, or end a cycle; its plan stays locked while running or paused, so end the run before editing it
 - The normal timer, compact timer, and tray share the same start/pause and reset controls; reset restarts only the current phase and pauses it
 - Complete this round on the Timer tab also advances the cycle; if paused, the next phase stays paused
+- Skip the current focus or rest from the Cycle tab, normal timer, or compact timer; a running cycle continues to the next phase, while a paused cycle stays paused
+- Skips retain the phase, planned duration, actual elapsed time, timestamp, and note as skipped records rather than completed rounds; skipping the final focus ends the cycle
+- Skipped focus contributes its actual time to today's focus total without adding a completed round or tomato; skipped rests do not add focus time
 - Mode and duration changes are locked during a cycle; View cycle in compact mode opens the standard window's Cycle tab
 - Every phase follows the Windows notification preference; timing continues in the tray, and ending a cycle keeps completed focus records without recording the unfinished phase
 
@@ -128,7 +131,7 @@ remain available after restarting.
 - Tree height, crown width, branches, and foliage density evolve with the tomato count using smooth transitions
 - During a countdown, the next tomato grows from a small green fruit into a ripe red tomato
 - Pausing preserves its current maturity; resetting or switching modes cancels that growth
-- Tomato counts follow locally saved focus records for today; a new local date starts a new tree without deleting history
+- Tomato counts follow locally saved completed focus records for today; skips never add tomatoes, and a new local date starts a new tree without deleting history
 - The scene displays at most 50 tomatoes to limit rendering cost; its count still reflects all saved focus records for today
 - The tree includes breathing, swaying, pointer parallax, and responsive scaling animations
 
@@ -154,9 +157,10 @@ remain available after restarting.
 ## Data and Privacy
 
 - Focus history, the current goal, durations, cycle plans, theme, language, window size, always-on-top, notification, and tray preferences stay in local `localStorage`
-- Only the most recent 200 focus records are kept; older entries are removed automatically, and daily totals and tomatoes are calculated from retained records
-- Notes are saved with completed focus records; notes for an unfinished phase exist only for the current run
-- Clearing history removes all saved focus records and updates daily totals and the tree; it does not clear the goal, cycle plan, or other settings
+- The most recent 200 session records are kept, including completed focus and skipped focus/rest phases; older entries are removed automatically
+- Daily focus time combines the planned duration of completed focus and actual elapsed time of skipped focus, displayed as whole minutes; tomatoes count only completed focus, and all totals use retained records
+- Notes are saved when focus completes or a cycle phase is skipped; other unfinished notes exist only for the current run
+- Clearing history removes all saved session records and updates daily totals and the tree; it does not clear the goal, cycle plan, or other settings
 - Start at login is managed by the Windows login entry and is never uploaded to a remote service
 - No account is required
 - Focus history and quick notes are never uploaded
@@ -196,7 +200,8 @@ npm run build
 cargo test --locked --manifest-path src-tauri/Cargo.toml
 ```
 
-`npm test` covers phase order, the final round, plan isolation, and input bounds.
+`npm test` covers phase order, skipping, the final round, plan isolation, input
+bounds, elapsed time, and compatibility with older records.
 The release workflow runs these tests before building the installer.
 
 ## Build the Installer

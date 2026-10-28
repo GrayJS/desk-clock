@@ -54,3 +54,29 @@ test("plans bound invalid and fractional values before timing begins", () => {
   assert.deepEqual(normalizeCyclePlan({ rounds: 2.7, focusMinutes: 25.3, restMinutes: 5.8 }),
     { rounds: 3, focusMinutes: 25, restMinutes: 6 });
 });
+
+test("skipping focus advances the plan without counting it as completed focus", () => {
+  let run = advanceCycle(startCycle({ rounds: 2, focusMinutes: 25, restMinutes: 5 }), "skipped");
+  assert.equal(run.phase, "rest");
+  assert.equal(run.processedRounds, 1);
+  assert.equal(run.completedRounds, 0);
+  assert.equal(run.skippedFocusRounds, 1);
+  run = advanceCycle(run, "skipped");
+  assert.equal(run.phase, "focus");
+  assert.equal(run.round, 2);
+  assert.equal(run.completedRounds, 0);
+  assert.equal(run.skippedFocusRounds, 1);
+  run = advanceCycle(run);
+  assert.equal(run.finished, true);
+  assert.equal(run.processedRounds, 2);
+  assert.equal(run.completedRounds, 1);
+});
+
+test("skipping the final focus ends the cycle without adding an extra rest", () => {
+  const run = advanceCycle(startCycle({ rounds: 1, focusMinutes: 25, restMinutes: 5 }), "skipped");
+  assert.equal(run.finished, true);
+  assert.equal(run.phase, "focus");
+  assert.equal(run.completedRounds, 0);
+  assert.equal(run.skippedFocusRounds, 1);
+  assert.equal(advanceCycle(run, "skipped"), run);
+});

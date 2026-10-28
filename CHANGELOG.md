@@ -3,6 +3,25 @@
 This file records user-visible changes that have not yet reached the latest
 stable release.
 
+## 0.6.12 (2026-10-29)
+
+### Added
+
+- Added Skip focus and Skip rest controls to the cycle panel, normal timer, and
+  compact timer. A running cycle continues; a paused cycle stays paused.
+- Skipped phases retain their type, planned duration, actual elapsed time,
+  timestamp, and note in local history. History distinguishes skipped stages
+  from completed focus sessions.
+
+### Changed
+
+- Cycle progress tracks processed rounds separately from completed and skipped
+  focus rounds. Skipping the final focus ends the cycle without an extra rest.
+- Skipped focus time contributes only its actual elapsed duration to daily focus
+  totals; skipped rests and focus skips never add tomatoes or completed rounds.
+- Older records without an outcome remain compatible with completed-focus
+  statistics. History continues to retain the most recent 200 session records.
+
 ## 0.6.11 (2026-10-28)
 
 ### Added
