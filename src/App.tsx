@@ -14,6 +14,7 @@ import {
   Play,
   Plus,
   RefreshCw,
+  Repeat2,
   RotateCcw,
   Settings2,
   Sparkles,
@@ -36,12 +37,20 @@ import {
 import { useClock } from "./hooks/useClock";
 import { usePersistentState } from "./hooks/usePersistentState";
 import SettingsPanel from "./components/SettingsPanel";
+import CyclePanel from "./components/CyclePanel";
 import {
   createTranslator,
   getSystemLocale,
   type Locale,
   type MessageKey,
 } from "./i18n";
+import {
+  advanceCycle,
+  cyclePhaseSeconds,
+  startCycle,
+  type CyclePlan,
+  type CycleRun,
+} from "./lib/pomodoroCycle";
 import {
   getAutoStartEnabled,
   setAutoStartEnabled,
@@ -173,13 +182,22 @@ export default function App() {
     (durations.focus ?? defaultDurations.focus) * 60,
   );
   const [running, setRunning] = useState(false);
+  const [cyclePlan, setCyclePlan] = usePersistentState<CyclePlan>(
+    "morrow.cyclePlan",
+    {
+      rounds: 4,
+      focusMinutes: durations.focus ?? defaultDurations.focus,
+      restMinutes: durations.rest ?? defaultDurations.rest,
+    },
+  );
+  const [cycleRun, setCycleRun] = useState<CycleRun | null>(null);
   const [task, setTask] = usePersistentState("morrow.currentTask", "");
   const [sessionNote, setSessionNote] = useState("");
   const [records, setRecords] = usePersistentState<SessionRecord[]>(
     "morrow.sessions",
     [],
   );
-  const [activeView, setActiveView] = useState<"timer" | "tree" | "history">(
+  const [activeView, setActiveView] = useState<"timer" | "tree" | "cycle" | "history">(
     "timer",
   );
   const [alwaysOnTop, setPinned] = usePersistentState("morrow.pinned", true);
@@ -227,6 +245,7 @@ export default function App() {
   const [trayIconStatus, setTrayIconStatus] =
     useState<TrayIconStatus>("idle");
   const completingRef = useRef(false);
+  const timerDeadlineRef = useRef<number | null>(null);
   const lastUpdateCheckRef = useRef(0);
   const updateDismissedUntilRef = useRef(0);
   const updateInstallRef = useRef(false);
@@ -243,7 +262,10 @@ export default function App() {
   };
   const t = useMemo(() => createTranslator(locale), [locale]);
 
-  const currentMinutes = durations[mode] ?? defaultDurations[mode];
+  const cycleActive = Boolean(cycleRun && !cycleRun.finished);
+  const currentMinutes = cycleActive && cycleRun
+    ? mode === "focus" ? cycleRun.plan.focusMinutes : cycleRun.plan.restMinutes
+    : durations[mode] ?? defaultDurations[mode];
   const totalSeconds = currentMinutes * 60;
   const theme = themePreference === "system" ? systemTheme : themePreference;
   const progress = Math.min(1, Math.max(0, 1 - remaining / totalSeconds));
@@ -262,12 +284,23 @@ export default function App() {
   const tomatoGrowthProgress = mode === "focus" ? progress : 0;
   const remainingFocusMinutes = mode === "focus" ? remaining / 60 : currentMinutes;
   const isTomatoGrowing = mode === "focus" && remaining < totalSeconds;
-  const timerBusy = remaining < totalSeconds;
+  const timerBusy = cycleActive || remaining < totalSeconds;
+
+  const schedulePhaseNotification = useCallback((phase: TimerMode, seconds: number) => {
+    const isFocus = phase === "focus";
+    const title = t(isFocus ? "notificationFocusTitle" : "notificationRestTitle");
+    const body = isFocus
+      ? task.trim()
+        ? t("notificationFocusTask", { task: task.trim() })
+        : t("notificationFocus")
+      : t("notificationRest");
+    void scheduleTimerNotification(seconds, title, body);
+  }, [t, task]);
 
   const finishSession = useCallback(() => {
     if (completingRef.current) return;
     completingRef.current = true;
-    setRunning(false);
+    timerDeadlineRef.current = null;
     playCompletionTone();
 
     if (mode === "focus") {
@@ -281,8 +314,25 @@ export default function App() {
       };
       setRecords((current) => [newRecord, ...current].slice(0, 200));
       setSessionNote("");
-      setRemaining((durations.focus ?? defaultDurations.focus) * 60);
+    }
+
+    if (cycleRun && !cycleRun.finished) {
+      const nextRun = advanceCycle(cycleRun);
+      const nextMode = nextRun.finished ? "focus" : nextRun.phase;
+      const seconds = nextRun.finished
+        ? (durations.focus ?? defaultDurations.focus) * 60
+        : cyclePhaseSeconds(nextRun);
+      const continueRunning = running && !nextRun.finished;
+      setCycleRun(nextRun);
+      setMode(nextMode);
+      setRemaining(seconds);
+      setRunning(continueRunning);
+      if (continueRunning) {
+        timerDeadlineRef.current = Date.now() + seconds * 1000;
+        if (windowsNotificationsEnabled) schedulePhaseNotification(nextMode, seconds);
+      }
     } else {
+      setRunning(false);
       setMode("focus");
       setRemaining((durations.focus ?? defaultDurations.focus) * 60);
     }
@@ -290,19 +340,19 @@ export default function App() {
     window.setTimeout(() => {
       completingRef.current = false;
     }, 300);
-  }, [currentMinutes, durations, mode, sessionNote, setRecords, t, task]);
+  }, [currentMinutes, cycleRun, durations, mode, running, schedulePhaseNotification,
+    sessionNote, setRecords, t, task, windowsNotificationsEnabled]);
 
   useEffect(() => {
     if (!running) return;
-    const timer = window.setInterval(() => {
-      setRemaining((current) => {
-        if (current <= 1) {
-          window.setTimeout(finishSession, 0);
-          return 0;
-        }
-        return current - 1;
-      });
-    }, 1000);
+    const tick = () => {
+      if (timerDeadlineRef.current === null) return;
+      const seconds = Math.max(0, Math.ceil((timerDeadlineRef.current - Date.now()) / 1000));
+      setRemaining(seconds);
+      if (seconds === 0) finishSession();
+    };
+    tick();
+    const timer = window.setInterval(tick, 250);
     return () => window.clearInterval(timer);
   }, [finishSession, running]);
 
@@ -529,6 +579,8 @@ export default function App() {
   }, [trayCustomIcon, trayIconMode]);
 
   const switchMode = (nextMode: TimerMode) => {
+    if (cycleActive) return;
+    timerDeadlineRef.current = null;
     void cancelTimerNotification();
     setRunning(false);
     setMode(nextMode);
@@ -539,32 +591,27 @@ export default function App() {
   };
 
   const resetTimer = () => {
+    timerDeadlineRef.current = null;
     void cancelTimerNotification();
     setRunning(false);
     setRemaining(totalSeconds);
   };
 
-  const scheduleCurrentTimerNotification = (seconds: number) => {
-    const isFocus = mode === "focus";
-    const title = t(isFocus ? "notificationFocusTitle" : "notificationRestTitle");
-    const body = isFocus
-      ? task.trim()
-        ? t("notificationFocusTask", { task: task.trim() })
-        : t("notificationFocus")
-      : t("notificationRest");
-    void scheduleTimerNotification(seconds, title, body);
-  };
-
   const toggleTimer = () => {
     if (running) {
+      if (timerDeadlineRef.current !== null) {
+        setRemaining(Math.max(0, Math.ceil((timerDeadlineRef.current - Date.now()) / 1000)));
+      }
+      timerDeadlineRef.current = null;
       void cancelTimerNotification();
       setRunning(false);
       return;
     }
 
     if (windowsNotificationsEnabled) {
-      scheduleCurrentTimerNotification(remaining);
+      schedulePhaseNotification(mode, remaining);
     }
+    timerDeadlineRef.current = Date.now() + remaining * 1000;
     setRunning(true);
   };
 
@@ -574,12 +621,15 @@ export default function App() {
   };
 
   const openDurationMenu = () => {
+    if (cycleActive) return;
     setCustomMinutes(currentMinutes);
     setDurationMenuOpen((value) => !value);
     setSettingsOpen(false);
   };
 
   const applyDuration = (minutes: number) => {
+    if (cycleActive) return;
+    timerDeadlineRef.current = null;
     const safeMinutes = Math.min(180, Math.max(1, Math.round(minutes || 1)));
     void cancelTimerNotification();
     setRunning(false);
@@ -589,8 +639,36 @@ export default function App() {
     setDurationMenuOpen(false);
   };
 
+  const startPomodoroCycle = () => {
+    if (running || timerBusy) return;
+    void cancelTimerNotification();
+    const run = startCycle(cyclePlan);
+    const seconds = cyclePhaseSeconds(run);
+    setCyclePlan(run.plan);
+    setCycleRun(run);
+    setMode("focus");
+    setRemaining(seconds);
+    setDurationMenuOpen(false);
+    timerDeadlineRef.current = Date.now() + seconds * 1000;
+    setRunning(true);
+    if (windowsNotificationsEnabled) schedulePhaseNotification("focus", seconds);
+  };
+
+  const stopPomodoroCycle = () => {
+    timerDeadlineRef.current = null;
+    void cancelTimerNotification();
+    setRunning(false);
+    setCycleRun(null);
+    setMode("focus");
+    setRemaining((durations.focus ?? defaultDurations.focus) * 60);
+  };
+
   const applySize = (preset: SizePreset) => {
-    setSizePreset(preset);
+    if (preset === sizePreset) {
+      void setWindowSize(preset);
+    } else {
+      setSizePreset(preset);
+    }
   };
 
   const nextSizePreset =
@@ -662,7 +740,7 @@ export default function App() {
     if (!enabled) {
       void cancelTimerNotification();
     } else if (running) {
-      scheduleCurrentTimerNotification(remaining);
+      schedulePhaseNotification(mode, remaining);
     }
   };
 
@@ -844,6 +922,7 @@ export default function App() {
         <div className="compact-timer-main">
           <div className="compact-countdown">
             <span>
+              {cycleActive && cycleRun && `${cycleRun.round}/${cycleRun.plan.rounds} · `}
               {running ? t(runningLabelKeys[mode]) : t(modeLabelKeys[mode])}
             </span>
             <strong>{formatTimer(remaining)}</strong>
@@ -874,7 +953,19 @@ export default function App() {
         <div className="compact-progress" aria-hidden="true">
           <span style={{ width: `${progress * 100}%` }} />
         </div>
-        <div className="compact-mode-switcher">
+        {cycleActive && cycleRun ? (
+          <button
+            className="compact-cycle-link"
+            onClick={() => {
+              applySize("standard");
+              setActiveView("cycle");
+            }}
+          >
+            <Repeat2 size={11} />
+            {t("cycleCompletedRounds", { count: cycleRun.completedRounds, total: cycleRun.plan.rounds })}
+            <span>{t("openCycle")}</span>
+          </button>
+        ) : <div className="compact-mode-switcher">
           {(Object.keys(modeLabelKeys) as TimerMode[]).map((item) => (
             <button
               key={item}
@@ -884,7 +975,7 @@ export default function App() {
               {t(modeLabelKeys[item])}
             </button>
           ))}
-        </div>
+        </div>}
       </section>
 
       <nav className="view-tabs">
@@ -893,6 +984,10 @@ export default function App() {
         </button>
         <button className={activeView === "tree" ? "active" : ""} onClick={() => setActiveView("tree")}>
           <Sprout size={15} /> {t("treeTab")} <span className="count-badge tomato-badge">{todayTomatoes}</span>
+        </button>
+        <button className={activeView === "cycle" ? "active" : ""} onClick={() => setActiveView("cycle")}>
+          <Repeat2 size={15} /> {t("cycleTab")}
+          {cycleActive && <span className={`cycle-tab-dot ${running ? "running" : ""}`} />}
         </button>
         <button className={activeView === "history" ? "active" : ""} onClick={() => setActiveView("history")}>
           <History size={15} /> {t("historyTab")} <span className="count-badge">{records.length}</span>
@@ -909,6 +1004,8 @@ export default function App() {
                     <button
                       key={item}
                       className={mode === item ? "active" : ""}
+                      disabled={cycleActive}
+                      title={cycleActive ? t("cycleModeLocked") : undefined}
                       onClick={() => switchMode(item)}
                     >
                       {t(modeLabelKeys[item])}
@@ -919,6 +1016,8 @@ export default function App() {
                   <button
                     className={`duration-trigger ${durationMenuOpen ? "active" : ""}`}
                     aria-label={t("durationSetting")}
+                    disabled={cycleActive}
+                    title={cycleActive ? t("cycleModeLocked") : undefined}
                     onClick={openDurationMenu}
                   >
                     <Timer size={12} /> {currentMinutes} {t("minute")} <ChevronDown size={10} />
@@ -999,7 +1098,10 @@ export default function App() {
                   />
                 </svg>
                 <div className="timer-value">
-                  <small>{running ? t(runningLabelKeys[mode]) : t(modeLabelKeys[mode])}</small>
+                  <small>
+                    {cycleActive && cycleRun && `${cycleRun.round}/${cycleRun.plan.rounds} · `}
+                    {running ? t(runningLabelKeys[mode]) : t(modeLabelKeys[mode])}
+                  </small>
                   <strong>{formatTimer(remaining)}</strong>
                 </div>
               </div>
@@ -1059,6 +1161,22 @@ export default function App() {
               t={t}
             />
           </Suspense>
+        ) : activeView === "cycle" ? (
+          <CyclePanel
+            t={t}
+            plan={cyclePlan}
+            run={cycleRun}
+            running={running}
+            timerText={formatTimer(remaining)}
+            startDisabled={!cycleActive && (running || timerBusy)}
+            onPlanChange={(plan) => {
+              setCyclePlan(plan);
+              if (cycleRun?.finished) setCycleRun(null);
+            }}
+            onStart={startPomodoroCycle}
+            onToggle={toggleTimer}
+            onStop={stopPomodoroCycle}
+          />
         ) : (
           <section className="history-view">
             <div className="history-heading">

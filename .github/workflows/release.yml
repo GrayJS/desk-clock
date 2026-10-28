@@ -24,6 +24,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Test cycle logic
+        run: npm test
+
       - name: Build and publish signed updater
         uses: tauri-apps/tauri-action@v1
         env:

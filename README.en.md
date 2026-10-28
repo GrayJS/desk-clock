@@ -4,7 +4,7 @@
 
 A lightweight desktop clock and focus companion for Windows 11, built with Tauri 2, React, TypeScript, and Three.js—without Electron.
 
-Current stable release: [`v0.6.9`](https://github.com/GrayJS/desk-clock/releases/latest)
+Current stable release: [`v0.6.11`](https://github.com/GrayJS/desk-clock/releases/latest)
 
 ## Preview
 
@@ -29,6 +29,7 @@ Windows 10/11 x64 and Microsoft Edge WebView2 are required. WebView2 is normally
 - Unified settings panel for appearance, window, startup, and update options
 - Focus and rest timer modes; completed focus sessions stay in focus mode, ready for the next manual start
 - Quick duration presets and custom 1–180 minute countdowns
+- A third Cycle tab with 1–99 rounds and independent focus/rest durations that advance automatically
 - Current goal, quick notes, and completed focus-session history with confirmation before clearing records
 - System tray background mode with restore and quit actions
 - Optional start at login, synchronized with the actual Windows startup entry
@@ -59,6 +60,19 @@ a regular browser-only frontend preview.
 The selected preset is stored locally and restored on the next launch. The
 title-bar size button reflects the current preset, and its tooltip identifies
 the preset that will be selected on the next click.
+
+## Pomodoro Cycles
+
+Open the third tab, Cycle, to choose 1–99 rounds and focus/rest durations of
+1–180 minutes each. Press Start cycle. The first plan defaults to four rounds
+using your current timer durations; later changes are saved separately.
+
+- Automatically alternate focus and rest, stopping after the final focus without an extra rest
+- Record each completed focus and grow a tomato; rests never create focus records
+- Pause, resume, or end a cycle; end the run before editing its plan
+- The normal timer, compact timer, and tray share the same start/pause and reset controls; reset restarts only the current phase and pauses it
+- Mode and duration changes are locked during a cycle; View cycle in compact mode opens the standard window's Cycle tab
+- Every phase follows the Windows notification preference; timing continues in the tray, while quitting ends the run but preserves the plan
 
 ## Daily Focus Tomato Tree
 

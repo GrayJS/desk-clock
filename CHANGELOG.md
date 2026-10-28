@@ -3,6 +3,21 @@
 This file records user-visible changes that have not yet reached the latest
 stable release.
 
+## 0.6.11 (2026-10-28)
+
+### Added
+
+- Added a third Cycle tab with configurable round counts and independent focus
+  and rest durations, automatic phase transitions, pause/resume, and an end
+  action. The final focus round ends the plan without an extra rest.
+- Added persistent cycle plans and round progress in normal and compact timers.
+  Completed focus phases create records; rest phases do not.
+
+### Changed
+
+- Countdown progress now follows a deadline rather than counting interval
+  callbacks, reducing drift after the app is hidden or briefly delayed.
+
 ## 0.6.10 (2026-10-28)
 
 ### Changed
