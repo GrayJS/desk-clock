@@ -4,11 +4,11 @@
 
 A lightweight desktop clock and focus companion for Windows 11, built with Tauri 2, React, TypeScript, and Three.js—without Electron.
 
-Current stable release: [`v0.6.13`](https://github.com/GrayJS/desk-clock/releases/latest)
+Current stable release: [`v0.6.14`](https://github.com/GrayJS/desk-clock/releases/latest)
 
-v0.6.13 brings daily, weekly, monthly, and yearly reports to History, with a
-clickable monthly calendar and compact responsive layouts. See the
-[release notes](docs/releases/v0.6.13.md) or [full changelog](CHANGELOG.md).
+v0.6.14 protects history from empty startup writes after failed reads, adds local
+recovery copies, and repairs incomplete report totals. See the
+[release notes](docs/releases/v0.6.14.md) or [full changelog](CHANGELOG.md).
 
 ## Preview
 
@@ -19,7 +19,7 @@ The screenshot illustrates the tree view; controls and layout may differ in the 
 ## Download and Install
 
 1. Open [GitHub Releases](https://github.com/GrayJS/desk-clock/releases/latest).
-2. Download the [v0.6.13 Windows x64 installer](https://github.com/GrayJS/desk-clock/releases/download/v0.6.13/Morrow._0.6.13_x64-setup.exe).
+2. Download the [v0.6.14 Windows x64 installer](https://github.com/GrayJS/desk-clock/releases/download/v0.6.14/Morrow._0.6.14_x64-setup.exe).
 3. Run the installer and launch Morrow.
 
 Windows 10/11 x64 and Microsoft Edge WebView2 are required. WebView2 is normally preinstalled on Windows 11.
@@ -159,6 +159,7 @@ remain available after restarting.
 - Focus history, the current goal, durations, cycle plans, theme, language, window size, always-on-top, notification, and tray preferences stay in local `localStorage`
 - The most recent 200 session records are kept, including completed focus and skipped focus/rest phases; older entries are removed automatically
 - Daily summaries are retained independently of the 200-detail limit. Upgrade initializes summaries from available history; previously removed records cannot be recovered
+- History and summaries keep local recovery copies. Read/write errors are shown and unreadable sources are preserved. Explicit clearing also clears recovery copies. Previously overwritten data is not guaranteed to be recoverable
 - Daily focus time combines planned completed-focus duration and actual skipped-focus time, displayed as whole minutes; tomatoes count only completed focus, using daily summaries
 - Notes are saved when focus completes or a cycle phase is skipped; other unfinished notes exist only for the current run
 - Clearing history removes all session details and report summaries and updates daily totals and the tree; it does not clear the goal, cycle plan, or other settings

@@ -14,6 +14,7 @@
   --report-surface: #f9fbf5; --report-line: #dfe6d6;
 }
 .report-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
+.report-storage-warning { margin: 0 0 8px; padding: 7px 9px; border: 1px solid #a78b52; border-radius: 8px; color: var(--report-ink); font-size: 10px; line-height: 1.5; }
 .report-eyebrow { display: flex; align-items: center; gap: 6px; color: var(--report-accent); font-size: 9px; font-weight: 600; letter-spacing: .1em; }
 .report-heading h2 { margin: 0; color: var(--report-ink); font-size: 18px; font-weight: 600; letter-spacing: -.5px; line-height: 1.3; }
 .report-eyebrow { display: none; }

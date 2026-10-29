@@ -51,7 +51,7 @@ import {
   type CycleRun,
 } from "./lib/pomodoroCycle";
 import { elapsedSessionSeconds } from "./lib/sessionRecords";
-import { addReportRecord, createReportArchive, localDateKey, type ReportArchive } from "./lib/reports";
+import { addReportRecord, createReportArchive, localDateKey, reconcileReportArchive, type ReportArchive } from "./lib/reports";
 import { reportPreviewRecords } from "./lib/reportPreview";
 import {
   getAutoStartEnabled,
@@ -189,12 +189,15 @@ export default function App() {
   const [cycleRun, setCycleRun] = useState<CycleRun | null>(null);
   const [task, setTask] = usePersistentState("morrow.currentTask", "");
   const [sessionNote, setSessionNote] = useState("");
-  const [records, setRecords] = usePersistentState<SessionRecord[]>(
+  const [records, setRecords, recordsStorage] = usePersistentState<SessionRecord[]>(
     "morrow.sessions",
     [],
   );
   const initialReportArchive = useMemo(() => createReportArchive(records), []);
-  const [reportArchive, setReportArchive] = usePersistentState<ReportArchive>("morrow.reportArchive", initialReportArchive);
+  const [reportArchive, setReportArchive, reportStorage] = usePersistentState<ReportArchive>("morrow.reportArchive", initialReportArchive);
+  useEffect(() => {
+    setReportArchive(current => reconcileReportArchive(current, records));
+  }, [records, setReportArchive]);
   const [previewRecords, setPreviewRecords] = useState(() => reportPreviewMode ? reportPreviewRecords(new Date()) : []);
   const previewArchive = useMemo(() => createReportArchive(previewRecords), [previewRecords]);
   const displayRecords = reportPreviewMode ? previewRecords : records;
@@ -1212,7 +1215,7 @@ export default function App() {
           />
         ) : (
           <Suspense fallback={<div className="tree-loading" role="status">{t("reportLoading")}</div>}>
-            <ReportPanel archive={displayArchive} records={reportDetailRecords} locale={locale} theme={theme} t={t}
+            <ReportPanel storageWarning={recordsStorage.readFailed || reportStorage.readFailed ? t("storageReadFailed") : recordsStorage.writeFailed || reportStorage.writeFailed ? t("storageWriteFailed") : recordsStorage.recovered || reportStorage.recovered ? t("storageRecovered") : undefined} archive={displayArchive} records={reportDetailRecords} locale={locale} theme={theme} t={t}
               today={localDateKey(now)} onClear={openClearHistoryConfirmation} preview={reportPreviewMode} />
           </Suspense>
         )}

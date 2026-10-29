@@ -58,6 +58,21 @@ export function createReportArchive(records: SessionRecord[], today = new Date()
   return records.reduce(addReportRecord, { version: 1, startedOn: localDateKey(today), days: {} } as ReportArchive);
 }
 
+export function reconcileReportArchive(archive: ReportArchive, records: SessionRecord[]) {
+  const retained = createReportArchive(records);
+  let changed = false;
+  const days = { ...archive.days };
+  for (const [key, known] of Object.entries(retained.days)) {
+    const previous = days[key];
+    if (!previous) { days[key] = known; changed = true; continue; }
+    if (previous.focusSeconds >= known.focusSeconds && previous.completed >= known.completed && previous.skippedFocus >= known.skippedFocus && previous.skippedRest >= known.skippedRest) continue;
+    const hours = known.hours.map((seconds, hour) => Math.max(seconds, previous.hours[hour] ?? 0));
+    days[key] = { focusSeconds: hours.reduce((sum, seconds) => sum + seconds, 0), completed: Math.max(previous.completed, known.completed), skippedFocus: Math.max(previous.skippedFocus, known.skippedFocus), skippedRest: Math.max(previous.skippedRest, known.skippedRest), hours };
+    changed = true;
+  }
+  return changed ? { ...archive, startedOn: retained.startedOn < archive.startedOn ? retained.startedOn : archive.startedOn, days } : archive;
+}
+
 export function periodBounds(period: ReportPeriod, anchor: Date) {
   const year = anchor.getFullYear();
   const month = anchor.getMonth();

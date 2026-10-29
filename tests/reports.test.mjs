@@ -9,11 +9,24 @@ async function compile(path) {
 }
 const sessionUri = `data:text/javascript;base64,${Buffer.from(await compile("../src/lib/sessionRecords.ts")).toString("base64")}`;
 const reportsSource = (await compile("../src/lib/reports.ts")).replace('"./sessionRecords"', JSON.stringify(sessionUri));
-const { createReportArchive, addReportRecord, periodBounds, shiftPeriod, summarizeReport, reportBuckets, recordsInPeriod, localDateKey } =
+const { createReportArchive, addReportRecord, periodBounds, shiftPeriod, summarizeReport, reportBuckets, recordsInPeriod, localDateKey, reconcileReportArchive } =
   await import(`data:text/javascript;base64,${Buffer.from(reportsSource).toString("base64")}`);
 
 const today = new Date(2026, 9, 29);
 const record = (overrides = {}) => ({ id: "one", title: "Focus", note: "", mode: "focus", durationMinutes: 25, completedAt: new Date(2026, 9, 29, 10).toISOString(), ...overrides });
+
+test("startup repairs empty summaries from legacy records without duplication",()=>{
+ const records=Array.from({length:21},(_,i)=>record({id:String(i)}));
+ const repaired=reconcileReportArchive(createReportArchive([],today),records);
+ assert.equal(summarizeReport(repaired,"month",today).completed,21);
+ assert.equal(reconcileReportArchive(repaired,records),repaired);
+});
+test("summary repair preserves older totals beyond retained details",()=>{
+ const full=createReportArchive(Array.from({length:230},(_,i)=>record({id:String(i)})),today);
+ const repaired=reconcileReportArchive(full,[record()]);assert.equal(repaired,full);
+ assert.equal(summarizeReport(repaired,"year",today).completed,230);
+ assert.equal(reconcileReportArchive(createReportArchive([],today),[]).days[localDateKey(today)],undefined);
+});
 
 test("migration preserves legacy completed focus and distinguishes skipped focus/rest", () => {
   const archive = createReportArchive([

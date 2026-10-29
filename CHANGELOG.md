@@ -3,6 +3,18 @@
 This file records user-visible changes that have not yet reached the latest
 stable release.
 
+## 0.6.14 (2026-10-30)
+
+### Fixed
+
+- Prevent startup defaults from overwriting persisted data after a failed read.
+- Keep local recovery copies of history and report totals, preserve unreadable
+  sources, and surface read/recovery/write failures in the report page.
+- Reconcile retained legacy history with incomplete report totals without
+  double-counting or dropping totals older than retained details.
+- Clear recovery copies alongside explicitly cleared history.
+- Add upgrade and failure-path regression coverage.
+
 ## 0.6.13 (2026-10-29)
 
 ### Added

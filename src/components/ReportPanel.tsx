@@ -24,6 +24,7 @@ type Props = {
   today: string;
   onClear: () => void;
   preview?: boolean;
+  storageWarning?: string;
 };
 
 class ChartBoundary extends Component<{ children: ReactNode; fallback: string }, { failed: boolean }> {
@@ -44,7 +45,7 @@ function durationLabel(seconds: number, locale: Locale) {
     : hours ? `${hours}h ${minutes % 60}min` : `${minutes}min`;
 }
 
-function ReportPanel({ archive, records, locale, theme, t, today, onClear, preview }: Props) {
+function ReportPanel({ archive, records, locale, theme, t, today, onClear, preview, storageWarning }: Props) {
   const [period, setPeriod] = useState<ReportPeriod>(() => {
     const requested = preview ? new URLSearchParams(location.search).get("period") : null;
     return requested === "day" || requested === "week" || requested === "month" || requested === "year" ? requested : "week";
@@ -119,6 +120,7 @@ function ReportPanel({ archive, records, locale, theme, t, today, onClear, previ
         colorBorder: dark ? "#3b4635" : "#dce4d5", borderRadius: 10, fontFamily: "inherit", fontSize: 12, controlHeight: 34 },
     }}>
       <section className="report-view" aria-label={t("reportEyebrow")}>
+        {storageWarning && <p className="report-storage-warning" role="alert">{storageWarning}</p>}
         <div className="report-heading">
           <div><span className="report-eyebrow"><BarChart3 size={12} /> {t("reportEyebrow")}</span><h2>{t("reportTitle")}</h2></div>
           {preview && <span className="report-preview-label">{t("reportDemo")}</span>}

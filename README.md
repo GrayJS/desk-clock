@@ -4,10 +4,10 @@
 
 一款面向 Windows 11 的轻量桌面时钟与专注工具。使用 Tauri 2、React、TypeScript 和 Three.js 构建，不依赖 Electron。
 
-当前稳定版本：[`v0.6.13`](https://github.com/GrayJS/desk-clock/releases/latest)
+当前稳定版本：[`v0.6.14`](https://github.com/GrayJS/desk-clock/releases/latest)
 
-v0.6.13 将记录页升级为日、周、月、年报表，支持月历点选日报，并提供更紧凑的响应式布局。
-查看 [本次发布说明](docs/releases/v0.6.13.md) 或 [完整更新记录](CHANGELOG.md)。
+v0.6.14 修复历史读取失败时的空值覆盖风险，增加本地恢复副本和报表汇总校验。
+查看 [本次发布说明](docs/releases/v0.6.14.md) 或 [完整更新记录](CHANGELOG.md)。
 
 ## 效果预览
 
@@ -18,7 +18,7 @@ v0.6.13 将记录页升级为日、周、月、年报表，支持月历点选日
 ## 下载与安装
 
 1. 打开 [GitHub Releases](https://github.com/GrayJS/desk-clock/releases/latest)。
-2. 下载 Windows x64 安装包：[v0.6.13 安装程序](https://github.com/GrayJS/desk-clock/releases/download/v0.6.13/Morrow._0.6.13_x64-setup.exe)。
+2. 下载 Windows x64 安装包：[v0.6.14 安装程序](https://github.com/GrayJS/desk-clock/releases/download/v0.6.14/Morrow._0.6.14_x64-setup.exe)。
 3. 运行安装包并启动 Morrow。
 
 需要 Windows 10/11 x64 与 Microsoft Edge WebView2。Windows 11 通常已经预装 WebView2。
@@ -145,6 +145,7 @@ v0.6.13 将记录页升级为日、周、月、年报表，支持月历点选日
 - 专注记录、当前目标、时长、循环计划、主题、语言、窗口尺寸、置顶、通知和托盘偏好均保存在本机 `localStorage`
 - 最多保存最近 200 条计时记录，包括已完成的专注及手动跳过的专注、休息；超过后自动移除最早的记录
 - 每日汇总独立保存，旧明细超出 200 条后，月报和年报仍保留汇总；首次升级只能从仍存在的明细初始化，无法恢复旧版已移除的记录
+- 历史与汇总保留本地恢复副本；读取失败时保护原始内容并提示，保存失败也会提示。主动确认清空会同步清空恢复副本。已被旧版覆盖的数据不保证能自动恢复
 - 今日时长为已完成专注的计划时长，加上跳过专注的实际用时，再按完整分钟显示；番茄数量仅统计已完成专注，统计基于每日汇总
 - 随手记在专注完成或手动跳过阶段时随记录保存，其余未结束阶段的随手记仅在当前运行中保留
 - 清空会同时删除全部计时明细与报表汇总，并同步影响今日统计与成果树；不会清除目标、循环计划或其他设置
