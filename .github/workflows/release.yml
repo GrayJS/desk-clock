@@ -38,3 +38,31 @@ jobs:
           releaseName: Morrow v__VERSION__
           generateReleaseNotes: true
           updaterJsonPreferNsis: true
+
+      - name: Use public download URLs for updater
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $version = (Get-Content src-tauri/tauri.conf.json -Raw | ConvertFrom-Json).version
+          $tag = "v$version"
+          $directory = Join-Path $env:RUNNER_TEMP ('morrow-updater-' + [guid]::NewGuid().ToString('N'))
+          New-Item -ItemType Directory -Path $directory | Out-Null
+          gh release download $tag --pattern latest.json --dir $directory
+          if ($LASTEXITCODE -ne 0) { throw 'Failed to download updater manifest' }
+          $release = gh release view $tag --json assets | ConvertFrom-Json
+          if ($LASTEXITCODE -ne 0) { throw 'Failed to read release assets' }
+          $path = Join-Path $directory 'latest.json'
+          $manifest = Get-Content -LiteralPath $path -Raw | ConvertFrom-Json
+          foreach ($platform in $manifest.platforms.PSObject.Properties) {
+            $asset = $release.assets | Where-Object { $_.apiUrl -eq $platform.Value.url -or $_.url -eq $platform.Value.url }
+            if (@($asset).Count -ne 1) { throw 'Updater asset could not be matched uniquely' }
+            $platform.Value.url = $asset.url
+          }
+          $notes = "docs/releases/$tag.md"
+          if (Test-Path -LiteralPath $notes) { $manifest.notes = Get-Content -LiteralPath $notes -Raw }
+          $manifest | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $path -Encoding utf8NoBOM
+          gh release upload $tag $path --clobber
+          if ($LASTEXITCODE -ne 0) { throw 'Failed to upload updater manifest' }
