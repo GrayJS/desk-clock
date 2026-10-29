@@ -3,7 +3,6 @@ import {
   ArrowUpRight,
   Check,
   ChevronDown,
-  Clock3,
   DownloadCloud,
   History,
   Maximize2,
@@ -23,7 +22,6 @@ import {
   Square,
   Timer,
   TimerReset,
-  Trash2,
   X,
 } from "lucide-react";
 import {
@@ -52,7 +50,9 @@ import {
   type CyclePlan,
   type CycleRun,
 } from "./lib/pomodoroCycle";
-import { elapsedSessionSeconds, focusSecondsForRecord, isCompletedFocus } from "./lib/sessionRecords";
+import { elapsedSessionSeconds } from "./lib/sessionRecords";
+import { addReportRecord, createReportArchive, localDateKey, type ReportArchive } from "./lib/reports";
+import { reportPreviewRecords } from "./lib/reportPreview";
 import {
   getAutoStartEnabled,
   setAutoStartEnabled,
@@ -99,6 +99,8 @@ import type {
 } from "./types";
 
 const FocusTree = lazy(() => import("./components/FocusTree"));
+const ReportPanel = lazy(() => import("./components/ReportPanel"));
+const reportPreviewMode = import.meta.env.DEV && new URLSearchParams(location.search).get("preview") === "reports";
 
 const modeLabelKeys: Record<TimerMode, MessageKey> = {
   focus: "modeFocus",
@@ -141,15 +143,6 @@ function pad(value: number) {
 
 function formatTimer(seconds: number) {
   return `${pad(Math.floor(seconds / 60))}:${pad(seconds % 60)}`;
-}
-
-function sameLocalDay(iso: string, date = new Date()) {
-  const target = new Date(iso);
-  return (
-    target.getFullYear() === date.getFullYear() &&
-    target.getMonth() === date.getMonth() &&
-    target.getDate() === date.getDate()
-  );
 }
 
 function playCompletionTone() {
@@ -200,8 +193,15 @@ export default function App() {
     "morrow.sessions",
     [],
   );
+  const initialReportArchive = useMemo(() => createReportArchive(records), []);
+  const [reportArchive, setReportArchive] = usePersistentState<ReportArchive>("morrow.reportArchive", initialReportArchive);
+  const [previewRecords, setPreviewRecords] = useState(() => reportPreviewMode ? reportPreviewRecords(new Date()) : []);
+  const previewArchive = useMemo(() => createReportArchive(previewRecords), [previewRecords]);
+  const displayRecords = reportPreviewMode ? previewRecords : records;
+  const displayArchive = reportPreviewMode ? previewArchive : reportArchive;
+  const reportDetailRecords = useMemo(() => displayRecords.slice(0, 200), [displayRecords]);
   const [activeView, setActiveView] = useState<"timer" | "tree" | "cycle" | "history">(
-    "timer",
+    reportPreviewMode ? "history" : "timer",
   );
   const [alwaysOnTop, setPinned] = usePersistentState("morrow.pinned", true);
   const [sizePreset, setSizePreset] =
@@ -264,26 +264,21 @@ export default function App() {
     doubleClick: trayDoubleClickAction,
   };
   const t = useMemo(() => createTranslator(locale), [locale]);
+  const openClearHistoryConfirmation = useCallback(() => setClearHistoryConfirmOpen(true), []);
 
   const cycleActive = Boolean(cycleRun && !cycleRun.finished);
   const currentMinutes = cycleActive && cycleRun
     ? mode === "focus" ? cycleRun.plan.focusMinutes : cycleRun.plan.restMinutes
     : durations[mode] ?? defaultDurations[mode];
   const totalSeconds = currentMinutes * 60;
-  const theme = themePreference === "system" ? systemTheme : themePreference;
+  const previewTheme = reportPreviewMode ? new URLSearchParams(location.search).get("theme") : null;
+  const theme = previewTheme === "light" || previewTheme === "dark" ? previewTheme : themePreference === "system" ? systemTheme : themePreference;
   const progress = Math.min(1, Math.max(0, 1 - remaining / totalSeconds));
   const circumference = 2 * Math.PI * 76;
 
-  const todayKey = `${now.getFullYear()}-${now.getMonth()}-${now.getDate()}`;
-  const todayRecords = useMemo(
-    () => records.filter((record) => sameLocalDay(record.completedAt)),
-    [records, todayKey],
-  );
-  const todayMinutes = Math.floor(todayRecords.reduce(
-    (sum, record) => sum + focusSecondsForRecord(record),
-    0,
-  ) / 60);
-  const todayTomatoes = todayRecords.filter(isCompletedFocus).length;
+  const todayReport = displayArchive.days[localDateKey(now)];
+  const todayMinutes = Math.floor((todayReport?.focusSeconds ?? 0) / 60);
+  const todayTomatoes = todayReport?.completed ?? 0;
   const tomatoGrowthProgress = mode === "focus" ? progress : 0;
   const remainingFocusMinutes = mode === "focus" ? remaining / 60 : currentMinutes;
   const isTomatoGrowing = mode === "focus" && remaining < totalSeconds;
@@ -321,6 +316,7 @@ export default function App() {
         elapsedSeconds,
       };
       setRecords((current) => [newRecord, ...current].slice(0, 200));
+      setReportArchive(current => addReportRecord(current, newRecord));
       setSessionNote("");
     }
 
@@ -349,7 +345,7 @@ export default function App() {
       completingRef.current = false;
     }, 300);
   }, [currentMinutes, cycleRun, durations, mode, remaining, running, schedulePhaseNotification,
-    sessionNote, setRecords, t, task, totalSeconds, windowsNotificationsEnabled]);
+    sessionNote, setRecords, setReportArchive, t, task, totalSeconds, windowsNotificationsEnabled]);
 
   useEffect(() => {
     if (!running) return;
@@ -863,6 +859,7 @@ export default function App() {
       data-theme={theme}
       data-theme-preference={themePreference}
       data-locale={locale}
+      data-view={activeView}
     >
       <div className="ambient ambient-one" />
       <div className="ambient ambient-two" />
@@ -1015,7 +1012,7 @@ export default function App() {
           {cycleActive && <span className={`cycle-tab-dot ${running ? "running" : ""}`} />}
         </button>
         <button className={activeView === "history" ? "active" : ""} onClick={() => setActiveView("history")}>
-          <History size={15} /> {t("historyTab")} <span className="count-badge">{records.length}</span>
+          <History size={15} /> {t("historyTab")} <span className="count-badge">{reportDetailRecords.length}</span>
         </button>
       </nav>
 
@@ -1214,67 +1211,10 @@ export default function App() {
             onSkip={skipCurrentCyclePhase}
           />
         ) : (
-          <section className="history-view">
-            <div className="history-heading">
-              <div>
-                <span>{t("focusFootprints")}</span>
-                <strong>{t("completedToday", { count: todayTomatoes })}</strong>
-              </div>
-              {records.length > 0 && (
-                <button
-                  className="clear-button"
-                  onClick={() => setClearHistoryConfirmOpen(true)}
-                >
-                  <Trash2 size={13} /> {t("clear")}
-                </button>
-              )}
-            </div>
-            <div className="history-list">
-              {records.length === 0 ? (
-                <div className="empty-state">
-                  <Clock3 size={24} />
-                  <strong>{t("noRecords")}</strong>
-                  <span>{t("noRecordsHint")}</span>
-                </div>
-              ) : (
-                records.map((record) => (
-                  <article className="history-item" key={record.id}>
-                    <span className={`record-dot ${record.outcome === "skipped" ? "skipped" : ""}`} />
-                    <div className="record-copy">
-                      <div className="record-title-row">
-                        <strong>{record.title}</strong>
-                        {record.outcome === "skipped" && (
-                          <span className="record-skip-badge">
-                            {t(record.mode === "focus" ? "skippedFocus" : "skippedRest")}
-                          </span>
-                        )}
-                      </div>
-                      {record.note && <p>{record.note}</p>}
-                      {record.outcome === "skipped" && (
-                        <p className="record-duration-detail">
-                          {t("plannedDuration", { minutes: record.durationMinutes })}
-                        </p>
-                      )}
-                      <span>
-                        {new Intl.DateTimeFormat(locale, {
-                          month: "numeric",
-                          day: "numeric",
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        }).format(new Date(record.completedAt))}
-                      </span>
-                    </div>
-                    <b>
-                      {record.outcome === "skipped"
-                        ? formatTimer(record.elapsedSeconds ?? 0)
-                        : record.durationMinutes}
-                      <small>{record.outcome === "skipped" ? t("elapsedTime") : "min"}</small>
-                    </b>
-                  </article>
-                ))
-              )}
-            </div>
-          </section>
+          <Suspense fallback={<div className="tree-loading" role="status">{t("reportLoading")}</div>}>
+            <ReportPanel archive={displayArchive} records={reportDetailRecords} locale={locale} theme={theme} t={t}
+              today={localDateKey(now)} onClear={openClearHistoryConfirmation} preview={reportPreviewMode} />
+          </Suspense>
         )}
       </div>
 
@@ -1340,7 +1280,7 @@ export default function App() {
             <div className="confirm-dialog-copy">
               <strong id="clear-history-title">{t("clearHistoryTitle")}</strong>
               <span id="clear-history-description">
-                {t("clearHistoryDescription", { count: records.length })}
+                {t("clearHistoryDescription", { count: Math.min(displayRecords.length, 200) })}
               </span>
             </div>
             <div className="confirm-dialog-actions">
@@ -1354,7 +1294,11 @@ export default function App() {
               <button
                 className="confirm-dialog-danger"
                 onClick={() => {
-                  setRecords([]);
+                  if (reportPreviewMode) setPreviewRecords([]);
+                  else {
+                    setRecords([]);
+                    setReportArchive(createReportArchive([]));
+                  }
                   setClearHistoryConfirmOpen(false);
                 }}
               >

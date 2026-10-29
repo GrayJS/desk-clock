@@ -3,6 +3,24 @@
 This file records user-visible changes that have not yet reached the latest
 stable release.
 
+## 0.6.13 (2026-10-29)
+
+### Added
+
+- Replaced the History list with compact daily, weekly, monthly, and yearly
+  reports using Ant Design and Ant Design Charts / AntV.
+- Added a monthly focus calendar with daily totals and click-through to daily
+  reports, plus focus duration, completed rounds, active days, skipped phases,
+  completion rate, retained details, and accessible chart data.
+- Persist daily summaries independently of the 200-detail limit. Initialize
+  existing history on upgrade; clearing history also clears report summaries.
+
+### Changed
+
+- Standard window is now 420×747, keeping its width with a phone-like aspect ratio.
+- Adapted reports for narrow and expanded windows and both themes, reducing
+  whitespace to keep key metrics visible without scrolling.
+
 ## 0.6.12 (2026-10-29)
 
 ### Added

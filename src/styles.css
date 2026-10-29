@@ -186,7 +186,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible {
 .view-tabs { display: flex; gap: 4px; margin: 0 18px; padding: 4px; border: 1px solid rgba(255,255,255,.09); border-radius: 15px; background: rgba(255,255,255,.055); box-shadow: inset 0 1px rgba(255,255,255,.06), 0 8px 24px rgba(0,0,0,.08); backdrop-filter: blur(22px) saturate(150%); }
 .view-tabs button { display: flex; flex: 1; align-items: center; justify-content: center; gap: 6px; height: 31px; padding: 0 10px; border: 0; border-radius: 11px; color: #858b84; background: transparent; font-size: 11px; cursor: pointer; transition: .18s ease; }
 .view-tabs button:hover { color: #cdd0cc; }
-.view-tabs button { min-width: 0; padding-right: 6px; padding-left: 6px; }
+.view-tabs button { min-width: 0; padding-right: 6px; padding-left: 6px; white-space: nowrap; }
 .view-tabs button > svg { flex: 0 0 auto; }
 .cycle-tab-dot { flex: 0 0 5px; width: 5px; height: 5px; border-radius: 50%; background: var(--text-tertiary); }
 .cycle-tab-dot.running { background: var(--lime); box-shadow: 0 0 6px rgba(215,251,118,.4); }
@@ -699,8 +699,11 @@ footer > span { display: flex; align-items: center; gap: 5px; }
   .session-fields textarea { height: 35px; min-height: 35px; }
 }
 
-@media (max-width: 380px) {
+@media (max-width: 430px) {
   .view-tabs .count-badge { display: none; }
+}
+
+@media (max-width: 380px) {
   .brand { gap: 6px; }
   .brand > span:last-child { display: none; }
   .icon-button { min-width: 36px; }

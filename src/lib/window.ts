@@ -5,7 +5,7 @@ import type { SizePreset } from "../types";
 
 const sizes: Record<SizePreset, [number, number]> = {
   compact: [360, 210],
-  standard: [420, 600],
+  standard: [420, 747],
   expanded: [720, 520],
 };
 

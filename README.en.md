@@ -4,11 +4,11 @@
 
 A lightweight desktop clock and focus companion for Windows 11, built with Tauri 2, React, TypeScript, and Three.js—without Electron.
 
-Current stable release: [`v0.6.12`](https://github.com/GrayJS/desk-clock/releases/latest)
+Current stable release: [`v0.6.13`](https://github.com/GrayJS/desk-clock/releases/latest)
 
-v0.6.12 lets you skip focus or rest during a cycle while preserving the phase,
-planned duration, elapsed time, and note. See the
-[release notes](docs/releases/v0.6.12.md) or [full changelog](CHANGELOG.md).
+v0.6.13 brings daily, weekly, monthly, and yearly reports to History, with a
+clickable monthly calendar and compact responsive layouts. See the
+[release notes](docs/releases/v0.6.13.md) or [full changelog](CHANGELOG.md).
 
 ## Preview
 
@@ -19,7 +19,7 @@ The screenshot illustrates the tree view; controls and layout may differ in the 
 ## Download and Install
 
 1. Open [GitHub Releases](https://github.com/GrayJS/desk-clock/releases/latest).
-2. Download the [v0.6.12 Windows x64 installer](https://github.com/GrayJS/desk-clock/releases/download/v0.6.12/Morrow._0.6.12_x64-setup.exe).
+2. Download the [v0.6.13 Windows x64 installer](https://github.com/GrayJS/desk-clock/releases/download/v0.6.13/Morrow._0.6.13_x64-setup.exe).
 3. Run the installer and launch Morrow.
 
 Windows 10/11 x64 and Microsoft Edge WebView2 are required. WebView2 is normally preinstalled on Windows 11.
@@ -52,7 +52,7 @@ In standard and expanded windows, the tabs appear in this order:
 1. **Timer**: choose a focus or rest duration, enter a goal and optional note, then start timing.
 2. **Tree**: see today's tomatoes and how the tree evolves with completed focus sessions.
 3. **Cycle**: configure multiple focus rounds and rests that advance automatically.
-4. **History**: review completed focus, skipped focus/rest phases, and notes; clearing requires confirmation.
+4. **History**: view daily, weekly, monthly, and yearly reports. Select a calendar date for its daily report, or expand session details and notes. Clearing requires confirmation.
 
 A manual focus session records its completion and stops. A manual rest returns
 to focus mode and also waits for a manual start. Complete this round records the
@@ -82,7 +82,7 @@ defaults; review or change them in Settings.
 | Preset | Window size | Best for |
 | --- | ---: | --- |
 | Compact | 360×210 | Keeping the clock visible while controlling the timer |
-| Standard | 420×600 | Everyday timing, goals, and focus history |
+| Standard | 420×747 | Phone-like portrait layout for timing and compact reports |
 | Expanded | 720×520 | Side-by-side timer content or the full achievement tree |
 
 Sizes are logical pixels; physical screen pixels depend on Windows display
@@ -158,9 +158,10 @@ remain available after restarting.
 
 - Focus history, the current goal, durations, cycle plans, theme, language, window size, always-on-top, notification, and tray preferences stay in local `localStorage`
 - The most recent 200 session records are kept, including completed focus and skipped focus/rest phases; older entries are removed automatically
-- Daily focus time combines the planned duration of completed focus and actual elapsed time of skipped focus, displayed as whole minutes; tomatoes count only completed focus, and all totals use retained records
+- Daily summaries are retained independently of the 200-detail limit. Upgrade initializes summaries from available history; previously removed records cannot be recovered
+- Daily focus time combines planned completed-focus duration and actual skipped-focus time, displayed as whole minutes; tomatoes count only completed focus, using daily summaries
 - Notes are saved when focus completes or a cycle phase is skipped; other unfinished notes exist only for the current run
-- Clearing history removes all saved session records and updates daily totals and the tree; it does not clear the goal, cycle plan, or other settings
+- Clearing history removes all session details and report summaries and updates daily totals and the tree; it does not clear the goal, cycle plan, or other settings
 - Start at login is managed by the Windows login entry and is never uploaded to a remote service
 - No account is required
 - Focus history and quick notes are never uploaded
